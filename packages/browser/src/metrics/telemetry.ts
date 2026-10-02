@@ -13,18 +13,18 @@ export interface BrowserTelemetry {
 }
 
 export const BROWSER_METRIC_NAMES = [
-  'browser_sessions_total',
-  'browser_sessions_active',
-  'browser_tasks_total',
-  'browser_tasks_success',
-  'browser_tasks_failed',
-  'browser_action_duration',
-  'browser_navigation_duration',
-  'browser_crashes',
-  'browser_download_size',
-  'browser_upload_size',
-  'browser_wait_time',
-  'browser_human_takeovers',
+  "browser_sessions_total",
+  "browser_sessions_active",
+  "browser_tasks_total",
+  "browser_tasks_success",
+  "browser_tasks_failed",
+  "browser_action_duration",
+  "browser_navigation_duration",
+  "browser_crashes",
+  "browser_download_size",
+  "browser_upload_size",
+  "browser_wait_time",
+  "browser_human_takeovers",
 ] as const;
 
 export function emptyTelemetry(): BrowserTelemetry {

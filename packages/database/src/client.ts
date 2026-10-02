@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
-import { Env } from '@openagent/config';
-import { getLogger } from '@openagent/logger';
+import { PrismaClient } from "@prisma/client";
+import { Env } from "@openagent/config";
+import { getLogger } from "@openagent/logger";
 
 let prisma: PrismaClient | null = null;
 
@@ -8,18 +8,19 @@ export function createPrismaClient(env: Env): PrismaClient {
   const logger = getLogger();
 
   const client = new PrismaClient({
-    log: env.OPENAGENT_ENV === 'development'
-      ? [
-          { level: 'query', emit: 'event' },
-          { level: 'error', emit: 'stdout' },
-          { level: 'warn', emit: 'stdout' },
-        ]
-      : [{ level: 'error', emit: 'stdout' }],
+    log:
+      env.OPENAGENT_ENV === "development"
+        ? [
+            { level: "query", emit: "event" },
+            { level: "error", emit: "stdout" },
+            { level: "warn", emit: "stdout" },
+          ]
+        : [{ level: "error", emit: "stdout" }],
   });
 
-  if (env.OPENAGENT_ENV === 'development') {
-    client.$on('query', (e: { query: string; duration: number }) => {
-      logger.debug('Database query', {
+  if (env.OPENAGENT_ENV === "development") {
+    client.$on("query", (e: { query: string; duration: number }) => {
+      logger.debug("Database query", {
         query: e.query,
         duration: e.duration,
       });
@@ -31,7 +32,9 @@ export function createPrismaClient(env: Env): PrismaClient {
 
 export function getPrismaClient(): PrismaClient {
   if (!prisma) {
-    throw new Error('Prisma client not initialized. Call initializeDatabase first.');
+    throw new Error(
+      "Prisma client not initialized. Call initializeDatabase first.",
+    );
   }
   return prisma;
 }
@@ -49,4 +52,4 @@ export async function closeDatabase(): Promise<void> {
   }
 }
 
-export { PrismaClient } from '@prisma/client';
+export { PrismaClient } from "@prisma/client";

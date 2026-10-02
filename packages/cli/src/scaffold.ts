@@ -37,13 +37,25 @@ const KIND_DESCRIPTIONS: Record<string, string> = {
 };
 
 function sanitizeName(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "my-extension";
+  return (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "my-extension"
+  );
 }
 
-function manifestYaml(opts: Required<Pick<ScaffoldOptions, "name" | "kind" | "language" | "description">>): string {
+function manifestYaml(
+  opts: Required<
+    Pick<ScaffoldOptions, "name" | "kind" | "language" | "description">
+  >,
+): string {
   const entry = opts.language === "python" ? "src/main.py" : "src/index.ts";
   // Scaffold aliases map to canonical manifest types (backend registry).
-  const manifestType = opts.kind === "full-extension" ? "automation-pack" : opts.kind;
+  const manifestType =
+    opts.kind === "full-extension" ? "automation-pack" : opts.kind;
   return [
     `manifest_version: '1'`,
     `name: ${opts.name}`,
@@ -142,7 +154,10 @@ extension = define_extension(
 `;
 }
 
-export function scaffoldProject(opts: ScaffoldOptions): { dir: string; files: string[] } {
+export function scaffoldProject(opts: ScaffoldOptions): {
+  dir: string;
+  files: string[];
+} {
   const name = sanitizeName(opts.name);
   const kind = String(opts.kind);
   const language = opts.language;
@@ -165,25 +180,79 @@ export function scaffoldProject(opts: ScaffoldOptions): { dir: string; files: st
     write("src/index.ts", tsEntry(kind, name));
     write(
       "package.json",
-      JSON.stringify({ name: `@openagent-ext/${name}`, version: "0.1.0", private: true, type: "module", main: "src/index.ts", scripts: { build: "tsc -p tsconfig.json", test: "node --test" } }, null, 2) + "\n",
+      JSON.stringify(
+        {
+          name: `@openagent-ext/${name}`,
+          version: "0.1.0",
+          private: true,
+          type: "module",
+          main: "src/index.ts",
+          scripts: { build: "tsc -p tsconfig.json", test: "node --test" },
+        },
+        null,
+        2,
+      ) + "\n",
     );
     write(
       "tsconfig.json",
-      JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, outDir: "dist", rootDir: "src", skipLibCheck: true }, include: ["src/**/*"] }, null, 2) + "\n",
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ES2022",
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            strict: true,
+            outDir: "dist",
+            rootDir: "src",
+            skipLibCheck: true,
+          },
+          include: ["src/**/*"],
+        },
+        null,
+        2,
+      ) + "\n",
     );
-    write("tests/hello.test.ts", `import assert from "node:assert/strict";\nimport { extension } from "../src/index.js";\n\nconst ctx = { log() {}, config: {} };\nconst out = (await extension.run(ctx, { hello: "world" })) as Record<string, unknown>;\nassert.equal(out.ok, true);\n`);
+    write(
+      "tests/hello.test.ts",
+      `import assert from "node:assert/strict";\nimport { extension } from "../src/index.js";\n\nconst ctx = { log() {}, config: {} };\nconst out = (await extension.run(ctx, { hello: "world" })) as Record<string, unknown>;\nassert.equal(out.ok, true);\n`,
+    );
   } else {
     write("src/main.py", pyEntry(kind, name));
     write("src/__init__.py", `"""${name} package."""\n`);
-    write("pyproject.toml", `[project]\nname = "${name}"\nversion = "0.1.0"\ndescription = ${JSON.stringify(description)}\nrequires-python = ">=3.10"\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n`);
-    write("tests/test_hello.py", `from src.main import extension\n\n\ndef test_hello():\n    handler = extension["handler"]\n    from src.main import ExtensionContext\n    out = handler(ExtensionContext(config={}), {"hello": "world"})\n    assert out["ok"] is True\n`);
+    write(
+      "pyproject.toml",
+      `[project]\nname = "${name}"\nversion = "0.1.0"\ndescription = ${JSON.stringify(description)}\nrequires-python = ">=3.10"\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n`,
+    );
+    write(
+      "tests/test_hello.py",
+      `from src.main import extension\n\n\ndef test_hello():\n    handler = extension["handler"]\n    from src.main import ExtensionContext\n    out = handler(ExtensionContext(config={}), {"hello": "world"})\n    assert out["ok"] is True\n`,
+    );
     write("requirements.txt", `# add runtime dependencies here\n`);
   }
-  write("examples/basic.json", JSON.stringify({ input: { hello: "world" }, expected: { ok: true } }, null, 2) + "\n");
-  write("docs/OVERVIEW.md", `# ${name}\n\n${description}\n\nKind: \`${kind}\`\n\n## Development\n\n- \`openagent validate\` — offline manifest validation\n- \`openagent test\` — offline checks + server tests\n- \`openagent package\` — build deterministic \`.oaext\`\n`);
-  write("README.md", `# ${name}\n\n${description}\n\n## Quickstart\n\n\`\`\`bash\nopenagent validate\nopenagent package\nopenagent publish --version 0.1.0\n\`\`\`\n`);
-  write(".gitignore", "node_modules/\ndist/\n*.oaext\n.env\n__pycache__/\n.venv/\n");
-  write("Dockerfile", `FROM node:20-slim\nWORKDIR /app\nCOPY . .\nCMD ["node", "--version"]\n`);
+  write(
+    "examples/basic.json",
+    JSON.stringify(
+      { input: { hello: "world" }, expected: { ok: true } },
+      null,
+      2,
+    ) + "\n",
+  );
+  write(
+    "docs/OVERVIEW.md",
+    `# ${name}\n\n${description}\n\nKind: \`${kind}\`\n\n## Development\n\n- \`openagent validate\` — offline manifest validation\n- \`openagent test\` — offline checks + server tests\n- \`openagent package\` — build deterministic \`.oaext\`\n`,
+  );
+  write(
+    "README.md",
+    `# ${name}\n\n${description}\n\n## Quickstart\n\n\`\`\`bash\nopenagent validate\nopenagent package\nopenagent publish --version 0.1.0\n\`\`\`\n`,
+  );
+  write(
+    ".gitignore",
+    "node_modules/\ndist/\n*.oaext\n.env\n__pycache__/\n.venv/\n",
+  );
+  write(
+    "Dockerfile",
+    `FROM node:20-slim\nWORKDIR /app\nCOPY . .\nCMD ["node", "--version"]\n`,
+  );
   return { dir, files: files.sort() };
 }
 

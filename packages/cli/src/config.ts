@@ -36,9 +36,14 @@ function readFileConfig(): FileConfig {
     const raw = fs.readFileSync(file, "utf8");
     const parsed = JSON.parse(raw) as Partial<FileConfig>;
     return {
-      activeProfile: typeof parsed.activeProfile === "string" ? parsed.activeProfile : DEFAULT_PROFILE,
+      activeProfile:
+        typeof parsed.activeProfile === "string"
+          ? parsed.activeProfile
+          : DEFAULT_PROFILE,
       profiles:
-        parsed.profiles && typeof parsed.profiles === "object" ? (parsed.profiles as Record<string, ProfileConfig>) : {},
+        parsed.profiles && typeof parsed.profiles === "object"
+          ? (parsed.profiles as Record<string, ProfileConfig>)
+          : {},
     };
   } catch {
     return { activeProfile: DEFAULT_PROFILE, profiles: {} };
@@ -70,7 +75,10 @@ function envVal(name: string): string | undefined {
 }
 
 /** Resolve effective profile: env vars take precedence over stored file. */
-export function getProfile(nameOverride?: string, orgOverride?: string): ResolvedProfile {
+export function getProfile(
+  nameOverride?: string,
+  orgOverride?: string,
+): ResolvedProfile {
   const fileCfg = readFileConfig();
   const requested =
     nameOverride?.trim() ||
@@ -82,7 +90,10 @@ export function getProfile(nameOverride?: string, orgOverride?: string): Resolve
   const envApiKey = envVal("OPENAGENT_API_KEY");
   const envOrg = envVal("OPENAGENT_ORG_ID");
 
-  const apiUrl = (envApiUrl ?? stored.apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "");
+  const apiUrl = (envApiUrl ?? stored.apiUrl ?? DEFAULT_API_URL).replace(
+    /\/+$/,
+    "",
+  );
   const apiKey = envApiKey ?? stored.apiKey;
   const orgId = orgOverride?.trim() || envOrg || stored.orgId;
 
@@ -107,7 +118,10 @@ export function saveProfile(
   const key = name.trim() || DEFAULT_PROFILE;
   const prev = cfg.profiles[key] ?? {};
   const next: ProfileConfig = {
-    apiUrl: (patch.apiUrl ?? prev.apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, ""),
+    apiUrl: (patch.apiUrl ?? prev.apiUrl ?? DEFAULT_API_URL).replace(
+      /\/+$/,
+      "",
+    ),
     apiKey: patch.apiKey !== undefined ? patch.apiKey : prev.apiKey,
     orgId: patch.orgId !== undefined ? patch.orgId : prev.orgId,
   };
@@ -129,9 +143,17 @@ export function removeProfileSecrets(name: string): boolean {
   return true;
 }
 
-export function listProfiles(): { active: string; names: string[]; raw: FileConfig } {
+export function listProfiles(): {
+  active: string;
+  names: string[];
+  raw: FileConfig;
+} {
   const cfg = readFileConfig();
-  return { active: cfg.activeProfile, names: Object.keys(cfg.profiles).sort(), raw: cfg };
+  return {
+    active: cfg.activeProfile,
+    names: Object.keys(cfg.profiles).sort(),
+    raw: cfg,
+  };
 }
 
 export function maskApiKey(key?: string): string {
@@ -147,7 +169,8 @@ export function redactSecrets(value: unknown): unknown {
   if (typeof value === "string") {
     if (/^(sk-|ghp_|gho_|AKIA|Bearer\s)/.test(value) || value.length >= 20) {
       // Only mask long opaque strings; keep short readable values intact.
-      if (value.length >= 24 || /sk-|ghp_|AKIA|PRIVATE KEY/i.test(value)) return maskApiKey(value);
+      if (value.length >= 24 || /sk-|ghp_|AKIA|PRIVATE KEY/i.test(value))
+        return maskApiKey(value);
     }
     return value;
   }
@@ -155,7 +178,9 @@ export function redactSecrets(value: unknown): unknown {
   if (typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (/api[_-]?key|token|secret|password|private[_-]?key|credential/i.test(k)) {
+      if (
+        /api[_-]?key|token|secret|password|private[_-]?key|credential/i.test(k)
+      ) {
         out[k] = typeof v === "string" ? maskApiKey(v) : "(redacted)";
       } else {
         out[k] = redactSecrets(v);

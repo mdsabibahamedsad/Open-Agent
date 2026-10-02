@@ -4,7 +4,14 @@ export interface ArtifactRecord {
   organizationId: string;
   taskId?: string;
   sessionId?: string;
-  type: 'screenshot' | 'download' | 'extraction' | 'html' | 'har' | 'video' | 'trace';
+  type:
+    | "screenshot"
+    | "download"
+    | "extraction"
+    | "html"
+    | "har"
+    | "video"
+    | "trace";
   name: string;
   size: number;
   mimeType: string;
@@ -37,5 +44,5 @@ export class InMemoryStorageBackend implements StorageBackend {
 export const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
 
 export function validateArtifactSize(size: number): void {
-  if (size > MAX_ARTIFACT_BYTES) throw new Error('Artifact exceeds size limit');
+  if (size > MAX_ARTIFACT_BYTES) throw new Error("Artifact exceeds size limit");
 }

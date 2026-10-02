@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import type { OrganizationId, UserId } from '@openagent/types';
+import { PrismaClient } from "@prisma/client";
+import type { OrganizationId, UserId } from "@openagent/types";
 
 export interface PaginationParams {
   page: number;
@@ -26,7 +26,7 @@ export abstract class BaseRepository<T, TCreate, TUpdate, TWhere> {
   protected async paginate<T>(
     findMany: () => Promise<T[]>,
     count: () => Promise<number>,
-    params: PaginationParams
+    params: PaginationParams,
   ): Promise<PaginatedResult<T>> {
     const page = Math.max(1, params.page);
     const pageSize = Math.min(100, Math.max(1, params.pageSize));
@@ -51,13 +51,16 @@ export abstract class BaseRepository<T, TCreate, TUpdate, TWhere> {
     return this.prisma[this.model].findUnique({ where: { id } } as any);
   }
 
-  async findMany(params: PaginationParams, where?: TWhere): Promise<PaginatedResult<T>> {
+  async findMany(
+    params: PaginationParams,
+    where?: TWhere,
+  ): Promise<PaginatedResult<T>> {
     return this.paginate(
       // @ts-expect-error - dynamic model access
       () => this.prisma[this.model].findMany({ where: where as any } as any),
       // @ts-expect-error - dynamic model access
       () => this.prisma[this.model].count({ where: where as any } as any),
-      params
+      params,
     );
   }
 
@@ -68,7 +71,10 @@ export abstract class BaseRepository<T, TCreate, TUpdate, TWhere> {
 
   async update(id: string, data: TUpdate): Promise<T> {
     // @ts-expect-error - dynamic model access
-    return this.prisma[this.model].update({ where: { id }, data: data as any } as any);
+    return this.prisma[this.model].update({
+      where: { id },
+      data: data as any,
+    } as any);
   }
 
   async delete(id: string): Promise<T> {

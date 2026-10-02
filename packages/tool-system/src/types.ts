@@ -1,84 +1,113 @@
-import { JSONSchema } from '@openagent/types';
+import { JSONSchema } from "@openagent/types";
 
-export type { JSONSchema } from '@openagent/types';
+export type { JSONSchema } from "@openagent/types";
 
 export type ToolCategory =
-  | 'communication'
-  | 'web'
-  | 'browser'
-  | 'http'
-  | 'database'
-  | 'filesystem'
-  | 'code'
-  | 'shell'
-  | 'search'
-  | 'documents'
-  | 'media'
-  | 'calendar'
-  | 'email'
-  | 'messaging'
-  | 'crm'
-  | 'analytics'
-  | 'finance'
-  | 'developer'
-  | 'system'
-  | 'ai'
-  | 'utility'
-  | 'custom';
+  | "communication"
+  | "web"
+  | "browser"
+  | "http"
+  | "database"
+  | "filesystem"
+  | "code"
+  | "shell"
+  | "search"
+  | "documents"
+  | "media"
+  | "calendar"
+  | "email"
+  | "messaging"
+  | "crm"
+  | "analytics"
+  | "finance"
+  | "developer"
+  | "system"
+  | "ai"
+  | "utility"
+  | "custom";
 
 export const ToolCategoryValues: ToolCategory[] = [
-  'communication', 'web', 'browser', 'http', 'database', 'filesystem', 'code', 'shell',
-  'search', 'documents', 'media', 'calendar', 'email', 'messaging', 'crm', 'analytics',
-  'finance', 'developer', 'system', 'ai', 'utility', 'custom',
+  "communication",
+  "web",
+  "browser",
+  "http",
+  "database",
+  "filesystem",
+  "code",
+  "shell",
+  "search",
+  "documents",
+  "media",
+  "calendar",
+  "email",
+  "messaging",
+  "crm",
+  "analytics",
+  "finance",
+  "developer",
+  "system",
+  "ai",
+  "utility",
+  "custom",
 ];
 
 export type ToolCapability =
-  | 'read'
-  | 'write'
-  | 'delete'
-  | 'network'
-  | 'filesystem'
-  | 'process_execution'
-  | 'browser_control'
-  | 'database_access'
-  | 'credential_access'
-  | 'external_api'
-  | 'message_send'
-  | 'email_send'
-  | 'code_execution'
-  | 'system_control'
-  | 'financial_action';
+  | "read"
+  | "write"
+  | "delete"
+  | "network"
+  | "filesystem"
+  | "process_execution"
+  | "browser_control"
+  | "database_access"
+  | "credential_access"
+  | "external_api"
+  | "message_send"
+  | "email_send"
+  | "code_execution"
+  | "system_control"
+  | "financial_action";
 
 export const ToolCapabilityValues: ToolCapability[] = [
-  'read', 'write', 'delete', 'network', 'filesystem', 'process_execution',
-  'browser_control', 'database_access', 'credential_access', 'external_api',
-  'message_send', 'email_send', 'code_execution', 'system_control', 'financial_action',
+  "read",
+  "write",
+  "delete",
+  "network",
+  "filesystem",
+  "process_execution",
+  "browser_control",
+  "database_access",
+  "credential_access",
+  "external_api",
+  "message_send",
+  "email_send",
+  "code_execution",
+  "system_control",
+  "financial_action",
 ];
 
-export type ToolRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type ToolRiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
-export type ToolExecutionMode = 'SYNC' | 'ASYNC' | 'STREAMING' | 'BACKGROUND' | 'WAITING';
+export type ToolExecutionMode =
+  "SYNC" | "ASYNC" | "STREAMING" | "BACKGROUND" | "WAITING";
 
 export type ToolLifecycleStatus =
-  | 'DRAFT'
-  | 'ACTIVE'
-  | 'DISABLED'
-  | 'DEPRECATED'
-  | 'REVOKED';
+  "DRAFT" | "ACTIVE" | "DISABLED" | "DEPRECATED" | "REVOKED";
 
-export type ToolTrustLevel = 'CORE' | 'VERIFIED' | 'ORGANIZATION' | 'COMMUNITY' | 'UNTRUSTED';
+export type ToolTrustLevel =
+  "CORE" | "VERIFIED" | "ORGANIZATION" | "COMMUNITY" | "UNTRUSTED";
 
 export type ToolProviderType =
-  | 'BUILTIN'
-  | 'HTTP_API'
-  | 'PYTHON_PACKAGE'
-  | 'JAVASCRIPT_PACKAGE'
-  | 'EXTERNAL_SERVICE'
-  | 'MCP'
-  | 'MARKETPLACE'
-  | 'BROWSER'
-  | 'CODING_RUNTIME'
-  | 'CUSTOM';
+  | "BUILTIN"
+  | "HTTP_API"
+  | "PYTHON_PACKAGE"
+  | "JAVASCRIPT_PACKAGE"
+  | "EXTERNAL_SERVICE"
+  | "MCP"
+  | "MARKETPLACE"
+  | "BROWSER"
+  | "CODING_RUNTIME"
+  | "CUSTOM";
 
 export interface ToolMetadata {
   name: string;
@@ -143,7 +172,7 @@ export interface ToolProvider {
   provider_type: ToolProviderType;
   configuration: Record<string, unknown>;
   supported_tool_types: string[];
-  health_status: 'HEALTHY' | 'DEGRADED' | 'UNAVAILABLE' | 'UNKNOWN';
+  health_status: "HEALTHY" | "DEGRADED" | "UNAVAILABLE" | "UNKNOWN";
   last_health_check?: Date;
   created_at: Date;
   updated_at: Date;
@@ -201,23 +230,23 @@ export interface ToolError {
 }
 
 export type ToolErrorCode =
-  | 'TOOL_NOT_FOUND'
-  | 'TOOL_DISABLED'
-  | 'TOOL_VERSION_NOT_FOUND'
-  | 'TOOL_NOT_AUTHORIZED'
-  | 'TOOL_POLICY_BLOCKED'
-  | 'INVALID_TOOL_INPUT'
-  | 'TOOL_TIMEOUT'
-  | 'TOOL_CANCELLED'
-  | 'TOOL_RATE_LIMITED'
-  | 'TOOL_UNAVAILABLE'
-  | 'TOOL_EXECUTION_FAILED'
-  | 'TOOL_OUTPUT_INVALID'
-  | 'CREDENTIAL_UNAVAILABLE'
-  | 'APPROVAL_REQUIRED'
-  | 'SCHEMA_VALIDATION_FAILED'
-  | 'PROVIDER_ERROR'
-  | 'RESOURCE_LIMIT_EXCEEDED';
+  | "TOOL_NOT_FOUND"
+  | "TOOL_DISABLED"
+  | "TOOL_VERSION_NOT_FOUND"
+  | "TOOL_NOT_AUTHORIZED"
+  | "TOOL_POLICY_BLOCKED"
+  | "INVALID_TOOL_INPUT"
+  | "TOOL_TIMEOUT"
+  | "TOOL_CANCELLED"
+  | "TOOL_RATE_LIMITED"
+  | "TOOL_UNAVAILABLE"
+  | "TOOL_EXECUTION_FAILED"
+  | "TOOL_OUTPUT_INVALID"
+  | "CREDENTIAL_UNAVAILABLE"
+  | "APPROVAL_REQUIRED"
+  | "SCHEMA_VALIDATION_FAILED"
+  | "PROVIDER_ERROR"
+  | "RESOURCE_LIMIT_EXCEEDED";
 
 export interface ToolUsage {
   estimated_cost?: number;
@@ -281,18 +310,18 @@ export interface ToolExecutionRecord {
 }
 
 export type ToolExecutionStatus =
-  | 'QUEUED'
-  | 'RUNNING'
-  | 'WAITING'
-  | 'SUCCEEDED'
-  | 'FAILED'
-  | 'CANCELLED'
-  | 'TIMED_OUT'
-  | 'REQUIRES_APPROVAL';
+  | "QUEUED"
+  | "RUNNING"
+  | "WAITING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED"
+  | "TIMED_OUT"
+  | "REQUIRES_APPROVAL";
 
 export interface ToolHealthRecord {
   tool_id: string;
-  status: 'HEALTHY' | 'DEGRADED' | 'UNAVAILABLE' | 'UNKNOWN';
+  status: "HEALTHY" | "DEGRADED" | "UNAVAILABLE" | "UNKNOWN";
   last_check: Date;
   success_count: number;
   failure_count: number;
@@ -333,8 +362,14 @@ export interface ToolResolverResult {
 export interface ToolAdapter {
   readonly adapter_id: string;
   readonly supported_tool_types: string[];
-  validate(tool_definition: ToolDefinition, input: Record<string, unknown>): Promise<ValidationResult>;
-  execute(context: ToolExecutionContext, input: Record<string, unknown>): Promise<ToolResult>;
+  validate(
+    tool_definition: ToolDefinition,
+    input: Record<string, unknown>,
+  ): Promise<ValidationResult>;
+  execute(
+    context: ToolExecutionContext,
+    input: Record<string, unknown>,
+  ): Promise<ToolResult>;
   cancel?(execution_id: string): Promise<void>;
   health_check?(tool_id: string): Promise<HealthCheckResult>;
   get_schema?(tool_id: string): Promise<JSONSchema>;
@@ -352,7 +387,7 @@ export interface ValidationError {
 }
 
 export interface HealthCheckResult {
-  status: 'HEALTHY' | 'DEGRADED' | 'UNAVAILABLE';
+  status: "HEALTHY" | "DEGRADED" | "UNAVAILABLE";
   latency_ms: number;
   details?: Record<string, unknown>;
 }
@@ -368,17 +403,17 @@ export interface ToolExecutionEvent {
 }
 
 export type ToolEventType =
-  | 'TOOL_RESOLVED'
-  | 'TOOL_AUTHORIZED'
-  | 'TOOL_STARTED'
-  | 'TOOL_PROGRESS'
-  | 'TOOL_COMPLETED'
-  | 'TOOL_FAILED'
-  | 'TOOL_RETRIED'
-  | 'TOOL_CANCELLED'
-  | 'TOOL_TIMEOUT'
-  | 'TOOL_BLOCKED'
-  | 'APPROVAL_REQUIRED';
+  | "TOOL_RESOLVED"
+  | "TOOL_AUTHORIZED"
+  | "TOOL_STARTED"
+  | "TOOL_PROGRESS"
+  | "TOOL_COMPLETED"
+  | "TOOL_FAILED"
+  | "TOOL_RETRIED"
+  | "TOOL_CANCELLED"
+  | "TOOL_TIMEOUT"
+  | "TOOL_BLOCKED"
+  | "APPROVAL_REQUIRED";
 
 export interface ToolRateLimitConfig {
   requests_per_minute: number;

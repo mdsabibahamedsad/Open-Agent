@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events';
-import { MCPTransport, createTransportFactory } from './transport';
+import { EventEmitter } from "events";
+import { MCPTransport, createTransportFactory } from "./transport";
 import {
   MCPServerConfig,
   MCPConnection,
@@ -21,10 +21,10 @@ import {
   MCPTransportType,
   MCPCredential,
   MCPHealthRecord,
-} from './types';
-import { OpenAgentLogger, createChildLogger } from '@openagent/logger';
+} from "./types";
+import { OpenAgentLogger, createChildLogger } from "@openagent/logger";
 
-const logger = createChildLogger({ module: 'mcp:client' });
+const logger = createChildLogger({ module: "mcp:client" });
 
 export interface MCPClientOptions {
   serverConfig: MCPServerConfig;
@@ -38,7 +38,9 @@ export interface MCPClientOptions {
 export class MCPClient extends EventEmitter {
   private transport: MCPTransport;
   private serverConfig: MCPServerConfig;
-  private credentialResolver: (credentialId: string) => Promise<MCPCredential | null>;
+  private credentialResolver: (
+    credentialId: string,
+  ) => Promise<MCPCredential | null>;
   private connection: MCPConnection;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -53,85 +55,98 @@ export class MCPClient extends EventEmitter {
     this.credentialResolver = options.credentialResolver;
     this.transport = createTransportFactory().createTransport(
       this.serverConfig.transport,
-      this.serverConfig
+      this.serverConfig,
     );
     this.connection = {
       id: crypto.randomUUID(),
       server_id: this.serverConfig.id,
-      state: 'DISCONNECTED',
+      state: "DISCONNECTED",
       capabilities: {},
       created_at: new Date(),
       last_activity: new Date(),
     };
 
     this.setupTransportListeners();
-    
+
     if (options.onCapabilitiesChange) {
-      this.on('capabilities', options.onCapabilitiesChange);
+      this.on("capabilities", options.onCapabilitiesChange);
     }
     if (options.onStateChange) {
-      this.on('stateChange', options.onStateChange);
+      this.on("stateChange", options.onStateChange);
     }
     if (options.onError) {
-      this.on('error', options.onError);
+      this.on("error", options.onError);
     }
     if (options.onNotification) {
-      this.on('notification', options.onNotification);
+      this.on("notification", options.onNotification);
     }
   }
 
   private setupTransportListeners(): void {
-    this.transport.on('close', (error?: Error) => {
+    this.transport.on("close", (error?: Error) => {
       this.handleDisconnect(error);
     });
 
-    this.transport.on('error', (error: Error) => {
-      logger.error('Transport error', { server_id: this.serverConfig.id, error: error.message });
-      this.emit('error', error);
+    this.transport.on("error", (error: Error) => {
+      logger.error("Transport error", {
+        server_id: this.serverConfig.id,
+        error: error.message,
+      });
+      this.emit("error", error);
     });
 
-    this.transport.on('notification', (notification: { method: string; params?: unknown }) => {
-      this.emit('notification', notification);
-    });
+    this.transport.on(
+      "notification",
+      (notification: { method: string; params?: unknown }) => {
+        this.emit("notification", notification);
+      },
+    );
 
-    this.transport.on('capabilities', (capabilities: MCPCapabilities) => {
+    this.transport.on("capabilities", (capabilities: MCPCapabilities) => {
       this.connection.capabilities = capabilities;
-      this.emit('capabilities', capabilities);
+      this.emit("capabilities", capabilities);
     });
   }
 
   async connect(): Promise<MCPConnection> {
-    if (this.connection.state === 'CONNECTING' || this.connection.state === 'CONNECTED') {
+    if (
+      this.connection.state === "CONNECTING" ||
+      this.connection.state === "CONNECTED"
+    ) {
       return this.connection;
     }
 
-    this.connection.state = 'CONNECTING';
-    this.emit('stateChange', 'CONNECTING');
+    this.connection.state = "CONNECTING";
+    this.emit("stateChange", "CONNECTING");
 
     try {
       await this.injectCredentials();
       await this.transport.connect(this.serverConfig);
-      
-      this.connection.state = 'CONNECTED';
+
+      this.connection.state = "CONNECTED";
       this.connection.last_activity = new Date();
       this.reconnectAttempts = 0;
-      
+
       await this.discoverCapabilities();
-      
+
       this.startHealthChecks();
-      
-      logger.info('MCP client connected', { 
+
+      logger.info("MCP client connected", {
         server_id: this.serverConfig.id,
-        tools: this.connection.capabilities.tools?.list_changed ? 'discovered' : 'none',
-        resources: this.connection.capabilities.resources ? 'available' : 'none',
-        prompts: this.connection.capabilities.prompts ? 'available' : 'none',
+        tools: this.connection.capabilities.tools?.list_changed
+          ? "discovered"
+          : "none",
+        resources: this.connection.capabilities.resources
+          ? "available"
+          : "none",
+        prompts: this.connection.capabilities.prompts ? "available" : "none",
       });
-      
-      this.emit('stateChange', 'CONNECTED');
+
+      this.emit("stateChange", "CONNECTED");
       return this.connection;
     } catch (error) {
-      this.connection.state = 'FAILED';
-      this.emit('stateChange', 'FAILED');
+      this.connection.state = "FAILED";
+      this.emit("stateChange", "FAILED");
       throw error;
     }
   }
@@ -139,13 +154,20 @@ export class MCPClient extends EventEmitter {
   private async injectCredentials(): Promise<void> {
     if (!this.serverConfig.credential_id) return;
 
-    const credential = await this.credentialResolver(this.serverConfig.credential_id);
+    const credential = await this.credentialResolver(
+      this.serverConfig.credential_id,
+    );
     if (!credential) {
-      throw new Error(`Credential ${this.serverConfig.credential_id} not found`);
+      throw new Error(
+        `Credential ${this.serverConfig.credential_id} not found`,
+      );
     }
 
     // Inject credential into transport config
-    if (this.serverConfig.transport === 'streamable_http' || this.serverConfig.transport === 'sse') {
+    if (
+      this.serverConfig.transport === "streamable_http" ||
+      this.serverConfig.transport === "sse"
+    ) {
       const authHeader = this.buildAuthHeader(credential);
       if (authHeader) {
         this.serverConfig.configuration = {
@@ -158,14 +180,16 @@ export class MCPClient extends EventEmitter {
 
   private buildAuthHeader(credential: MCPCredential): string | null {
     switch (credential.type) {
-      case 'api_key':
+      case "api_key":
         return `Bearer ${credential.data.api_key}`;
-      case 'bearer_token':
+      case "bearer_token":
         return `Bearer ${credential.data.token}`;
-      case 'basic_auth':
-        const encoded = Buffer.from(`${credential.data.username}:${credential.data.password}`).toString('base64');
+      case "basic_auth":
+        const encoded = Buffer.from(
+          `${credential.data.username}:${credential.data.password}`,
+        ).toString("base64");
         return `Basic ${encoded}`;
-      case 'oauth_token':
+      case "oauth_token":
         return `Bearer ${credential.data.access_token}`;
       default:
         return null;
@@ -180,57 +204,77 @@ export class MCPClient extends EventEmitter {
     ]);
 
     this.connection.capabilities = {
-      tools: tools.status === 'fulfilled' ? { list_changed: true } : undefined,
-      resources: resources.status === 'fulfilled' ? { subscribe: true, list_changed: true } : undefined,
-      prompts: prompts.status === 'fulfilled' ? { list_changed: true } : undefined,
+      tools: tools.status === "fulfilled" ? { list_changed: true } : undefined,
+      resources:
+        resources.status === "fulfilled"
+          ? { subscribe: true, list_changed: true }
+          : undefined,
+      prompts:
+        prompts.status === "fulfilled" ? { list_changed: true } : undefined,
     };
 
-    if (tools.status === 'fulfilled') {
-      logger.debug('Discovered MCP tools', { server_id: this.serverConfig.id, count: tools.value.tools.length });
+    if (tools.status === "fulfilled") {
+      logger.debug("Discovered MCP tools", {
+        server_id: this.serverConfig.id,
+        count: tools.value.tools.length,
+      });
     }
-    if (resources.status === 'fulfilled') {
-      logger.debug('Discovered MCP resources', { server_id: this.serverConfig.id, count: resources.value.resources.length });
+    if (resources.status === "fulfilled") {
+      logger.debug("Discovered MCP resources", {
+        server_id: this.serverConfig.id,
+        count: resources.value.resources.length,
+      });
     }
-    if (prompts.status === 'fulfilled') {
-      logger.debug('Discovered MCP prompts', { server_id: this.serverConfig.id, count: prompts.value.prompts.length });
+    if (prompts.status === "fulfilled") {
+      logger.debug("Discovered MCP prompts", {
+        server_id: this.serverConfig.id,
+        count: prompts.value.prompts.length,
+      });
     }
   }
 
   async disconnect(): Promise<void> {
     this.stopHealthChecks();
     await this.transport.disconnect();
-    this.connection.state = 'DISCONNECTED';
-    this.emit('stateChange', 'DISCONNECTED');
-    logger.info('MCP client disconnected', { server_id: this.serverConfig.id });
+    this.connection.state = "DISCONNECTED";
+    this.emit("stateChange", "DISCONNECTED");
+    logger.info("MCP client disconnected", { server_id: this.serverConfig.id });
   }
 
   private handleDisconnect(error?: Error): void {
     this.stopHealthChecks();
-    this.connection.state = 'DISCONNECTED';
-    this.emit('stateChange', 'DISCONNECTED');
-    
+    this.connection.state = "DISCONNECTED";
+    this.emit("stateChange", "DISCONNECTED");
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.scheduleReconnect();
     } else {
-      logger.error('Max reconnect attempts reached', { server_id: this.serverConfig.id });
-      this.connection.state = 'FAILED';
-      this.emit('stateChange', 'FAILED');
+      logger.error("Max reconnect attempts reached", {
+        server_id: this.serverConfig.id,
+      });
+      this.connection.state = "FAILED";
+      this.emit("stateChange", "FAILED");
     }
   }
 
   private scheduleReconnect(): void {
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts) + Math.random() * 1000;
+    const delay =
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts) +
+      Math.random() * 1000;
     this.reconnectAttempts++;
-    
-    logger.info('Scheduling MCP reconnect', { 
-      server_id: this.serverConfig.id, 
+
+    logger.info("Scheduling MCP reconnect", {
+      server_id: this.serverConfig.id,
       attempt: this.reconnectAttempts,
       delay_ms: delay,
     });
 
     setTimeout(() => {
       this.connect().catch((error) => {
-        logger.error('MCP reconnect failed', { server_id: this.serverConfig.id, error: error.message });
+        logger.error("MCP reconnect failed", {
+          server_id: this.serverConfig.id,
+          error: error.message,
+        });
         this.handleDisconnect(error);
       });
     }, delay);
@@ -238,15 +282,18 @@ export class MCPClient extends EventEmitter {
 
   private startHealthChecks(): void {
     this.stopHealthChecks();
-    
+
     this.healthCheckInterval = setInterval(async () => {
       try {
         await this.ping();
         this.connection.last_activity = new Date();
       } catch (error) {
-        logger.warn('MCP health check failed', { server_id: this.serverConfig.id, error: String(error) });
-        this.connection.state = 'DEGRADED';
-        this.emit('stateChange', 'DEGRADED');
+        logger.warn("MCP health check failed", {
+          server_id: this.serverConfig.id,
+          error: String(error),
+        });
+        this.connection.state = "DEGRADED";
+        this.emit("stateChange", "DEGRADED");
       }
     }, this.minHealthCheckInterval);
   }
@@ -260,29 +307,32 @@ export class MCPClient extends EventEmitter {
 
   async ping(): Promise<void> {
     await this.transport.send({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: this.generateRequestId(),
-      method: 'ping',
+      method: "ping",
     });
   }
 
   // Tool operations
   async listTools(cursor?: string): Promise<MCPListToolsResult> {
     const response = await this.transport.send({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: this.generateRequestId(),
-      method: 'tools/list',
+      method: "tools/list",
       params: cursor ? { cursor } : undefined,
     });
 
     return response.result as MCPListToolsResult;
   }
 
-  async callTool(name: string, arguments_: Record<string, unknown>): Promise<MCPToolResult> {
+  async callTool(
+    name: string,
+    arguments_: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     const response = await this.transport.send({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: this.generateRequestId(),
-      method: 'tools/call',
+      method: "tools/call",
       params: { name, arguments: arguments_ },
     });
 
@@ -296,9 +346,9 @@ export class MCPClient extends EventEmitter {
   // Resource operations
   async listResources(cursor?: string): Promise<MCPListResourcesResult> {
     const response = await this.transport.send({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: this.generateRequestId(),
-      method: 'resources/list',
+      method: "resources/list",
       params: cursor ? { cursor } : undefined,
     });
 
@@ -307,9 +357,9 @@ export class MCPClient extends EventEmitter {
 
   async readResource(uri: string): Promise<MCPReadResourceResult> {
     const response = await this.transport.send({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: this.generateRequestId(),
-      method: 'resources/read',
+      method: "resources/read",
       params: { uri },
     });
 
@@ -323,20 +373,23 @@ export class MCPClient extends EventEmitter {
   // Prompt operations
   async listPrompts(cursor?: string): Promise<MCPListPromptsResult> {
     const response = await this.transport.send({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: this.generateRequestId(),
-      method: 'prompts/list',
+      method: "prompts/list",
       params: cursor ? { cursor } : undefined,
     });
 
     return response.result as MCPListPromptsResult;
   }
 
-  async getPrompt(name: string, arguments_?: Record<string, unknown>): Promise<MCPGetPromptResult> {
+  async getPrompt(
+    name: string,
+    arguments_?: Record<string, unknown>,
+  ): Promise<MCPGetPromptResult> {
     const response = await this.transport.send({
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id: this.generateRequestId(),
-      method: 'prompts/get',
+      method: "prompts/get",
       params: { name, arguments: arguments_ },
     });
 
@@ -365,17 +418,19 @@ export class MCPClient extends EventEmitter {
     };
   }
 
-  private mapConnectionState(state: MCPConnectionState): MCPHealthRecord['status'] {
+  private mapConnectionState(
+    state: MCPConnectionState,
+  ): MCPHealthRecord["status"] {
     switch (state) {
-      case 'CONNECTED':
-        return 'HEALTHY';
-      case 'DEGRADED':
-        return 'DEGRADED';
-      case 'CONNECTING':
-        return 'UNKNOWN';
-      case 'DISCONNECTED':
-      case 'FAILED':
-        return 'UNAVAILABLE';
+      case "CONNECTED":
+        return "HEALTHY";
+      case "DEGRADED":
+        return "DEGRADED";
+      case "CONNECTING":
+        return "UNKNOWN";
+      case "DISCONNECTED":
+      case "FAILED":
+        return "UNAVAILABLE";
     }
   }
 
@@ -388,7 +443,7 @@ export class MCPClient extends EventEmitter {
   }
 
   isConnected(): boolean {
-    return this.connection.state === 'CONNECTED';
+    return this.connection.state === "CONNECTED";
   }
 
   private generateRequestId(): string {
@@ -397,7 +452,7 @@ export class MCPClient extends EventEmitter {
 
   async refreshCapabilities(): Promise<void> {
     if (!this.isConnected()) {
-      throw new Error('Cannot refresh capabilities: not connected');
+      throw new Error("Cannot refresh capabilities: not connected");
     }
     await this.discoverCapabilities();
   }
@@ -409,7 +464,7 @@ export class MCPProtocolError extends Error {
 
   constructor(error: MCPError) {
     super(error.message);
-    this.name = 'MCPProtocolError';
+    this.name = "MCPProtocolError";
     this.code = error.code;
     this.data = error.data;
   }
@@ -417,9 +472,13 @@ export class MCPProtocolError extends Error {
 
 export class MCPClientManager extends EventEmitter {
   private clients = new Map<string, MCPClient>();
-  private credentialResolver: (credentialId: string) => Promise<MCPCredential | null>;
+  private credentialResolver: (
+    credentialId: string,
+  ) => Promise<MCPCredential | null>;
 
-  constructor(credentialResolver: (credentialId: string) => Promise<MCPCredential | null>) {
+  constructor(
+    credentialResolver: (credentialId: string) => Promise<MCPCredential | null>,
+  ) {
     super();
     this.credentialResolver = credentialResolver;
   }
@@ -433,16 +492,16 @@ export class MCPClientManager extends EventEmitter {
       serverConfig: config,
       credentialResolver: this.credentialResolver,
       onCapabilitiesChange: (capabilities) => {
-        this.emit('capabilitiesChange', config.id, capabilities);
+        this.emit("capabilitiesChange", config.id, capabilities);
       },
       onStateChange: (state) => {
-        this.emit('stateChange', config.id, state);
+        this.emit("stateChange", config.id, state);
       },
       onError: (error) => {
-        this.emit('error', config.id, error);
+        this.emit("error", config.id, error);
       },
       onNotification: (notification) => {
-        this.emit('notification', config.id, notification);
+        this.emit("notification", config.id, notification);
       },
     });
 
@@ -471,9 +530,9 @@ export class MCPClientManager extends EventEmitter {
       try {
         await client.connect();
       } catch (error) {
-        logger.error('Failed to connect MCP client', { 
-          server_id: client.getServerConfig().id, 
-          error: String(error) 
+        logger.error("Failed to connect MCP client", {
+          server_id: client.getServerConfig().id,
+          error: String(error),
         });
       }
     }

@@ -11,7 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "dev": "tsx src/bin/openagent.ts"
+    "dev": "tsx src/bin/openagent.ts",
+    "lint": "prettier --check \"src/**/*.{ts,tsx,json}\""
   },
   "dependencies": {
     "@openagent/developer-tools": "workspace:*",

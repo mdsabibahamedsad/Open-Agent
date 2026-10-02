@@ -1,6 +1,8 @@
-import { OpenAgentLogger, createChildLogger } from '@openagent/logger';
+import { OpenAgentLogger, createChildLogger } from "@openagent/logger";
 
-const logger: OpenAgentLogger = createChildLogger({ module: 'tool-system:credentials' });
+const logger: OpenAgentLogger = createChildLogger({
+  module: "tool-system:credentials",
+});
 
 export interface CredentialData {
   id: string;
@@ -16,7 +18,8 @@ export interface CredentialReference {
 
 export class CredentialResolver {
   private credentialStore: Map<string, CredentialData> = new Map();
-  private organizationCredentials: Map<string, Map<string, CredentialData>> = new Map();
+  private organizationCredentials: Map<string, Map<string, CredentialData>> =
+    new Map();
 
   constructor() {}
 
@@ -26,7 +29,10 @@ export class CredentialResolver {
     this.organizationCredentials.set(orgId, orgCreds);
     this.credentialStore.set(credential.id, credential);
 
-    logger.info('Credential registered', { credential_id: credential.id, organization_id: orgId });
+    logger.info("Credential registered", {
+      credential_id: credential.id,
+      organization_id: orgId,
+    });
   }
 
   unregisterCredential(orgId: string, credentialId: string): boolean {
@@ -37,26 +43,35 @@ export class CredentialResolver {
     this.credentialStore.delete(credentialId);
 
     if (removed) {
-      logger.info('Credential unregistered', { credential_id: credentialId, organization_id: orgId });
+      logger.info("Credential unregistered", {
+        credential_id: credentialId,
+        organization_id: orgId,
+      });
     }
     return removed;
   }
 
   async resolve(
     references: string[],
-    organizationId: string
+    organizationId: string,
   ): Promise<Record<string, unknown>> {
     const result: Record<string, unknown> = {};
 
     for (const ref of references) {
       const credential = await this.getCredential(organizationId, ref);
       if (!credential) {
-        logger.warn('Credential not found', { credential_id: ref, organization_id: organizationId });
+        logger.warn("Credential not found", {
+          credential_id: ref,
+          organization_id: organizationId,
+        });
         continue;
       }
 
       if (credential.expires_at && credential.expires_at < new Date()) {
-        logger.warn('Credential expired', { credential_id: ref, organization_id: organizationId });
+        logger.warn("Credential expired", {
+          credential_id: ref,
+          organization_id: organizationId,
+        });
         continue;
       }
 
@@ -68,19 +83,28 @@ export class CredentialResolver {
 
   async resolveFields(
     references: CredentialReference[],
-    organizationId: string
+    organizationId: string,
   ): Promise<Record<string, unknown>> {
     const result: Record<string, unknown> = {};
 
     for (const ref of references) {
-      const credential = await this.getCredential(organizationId, ref.credential_id);
+      const credential = await this.getCredential(
+        organizationId,
+        ref.credential_id,
+      );
       if (!credential) {
-        logger.warn('Credential not found', { credential_id: ref.credential_id, organization_id: organizationId });
+        logger.warn("Credential not found", {
+          credential_id: ref.credential_id,
+          organization_id: organizationId,
+        });
         continue;
       }
 
       if (credential.expires_at && credential.expires_at < new Date()) {
-        logger.warn('Credential expired', { credential_id: ref.credential_id, organization_id: organizationId });
+        logger.warn("Credential expired", {
+          credential_id: ref.credential_id,
+          organization_id: organizationId,
+        });
         continue;
       }
 
@@ -102,7 +126,7 @@ export class CredentialResolver {
 
   private async getCredential(
     organizationId: string,
-    credentialId: string
+    credentialId: string,
   ): Promise<CredentialData | undefined> {
     const orgCreds = this.organizationCredentials.get(organizationId);
     if (orgCreds) {
@@ -136,7 +160,7 @@ export class CredentialManager {
     credentialId: string,
     type: string,
     data: Record<string, unknown>,
-    expiresAt?: Date
+    expiresAt?: Date,
   ): Promise<CredentialData> {
     const credential: CredentialData = {
       id: credentialId,
@@ -152,7 +176,7 @@ export class CredentialManager {
   async updateCredential(
     organizationId: string,
     credentialId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<CredentialData | undefined> {
     const credential = this.resolver.getCredentialData(credentialId);
     if (!credential) return undefined;
@@ -162,14 +186,17 @@ export class CredentialManager {
     return credential;
   }
 
-  async deleteCredential(organizationId: string, credentialId: string): Promise<boolean> {
+  async deleteCredential(
+    organizationId: string,
+    credentialId: string,
+  ): Promise<boolean> {
     return this.resolver.unregisterCredential(organizationId, credentialId);
   }
 
   async rotateCredential(
     organizationId: string,
     credentialId: string,
-    newData: Record<string, unknown>
+    newData: Record<string, unknown>,
   ): Promise<CredentialData | undefined> {
     const credential = this.resolver.getCredentialData(credentialId);
     if (!credential) return undefined;

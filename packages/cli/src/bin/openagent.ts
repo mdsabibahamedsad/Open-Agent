@@ -8,7 +8,9 @@ const program = new Command();
 
 program
   .name("openagent")
-  .description("Production-grade OpenAgent CLI for extension development and lifecycle management")
+  .description(
+    "Production-grade OpenAgent CLI for extension development and lifecycle management",
+  )
   .version("1.0.0", "--version", "Show CLI version")
   .option("--json", "machine-readable JSON output")
   .option("--quiet", "suppress human-readable output")
@@ -31,7 +33,8 @@ function exitCodeFor(err: unknown): number {
 try {
   await program.parseAsync(process.argv);
 } catch (err) {
-  const noColor = process.env.NO_COLOR !== undefined || process.argv.includes("--no-color");
+  const noColor =
+    process.env.NO_COLOR !== undefined || process.argv.includes("--no-color");
   const msg = err instanceof Error ? err.message : String(err);
   process.stderr.write((noColor ? "error: " : pc.red("✖ ")) + msg + "\n");
   if (process.env.OPENAGENT_DEBUG && err instanceof Error && err.stack) {

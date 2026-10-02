@@ -1,5 +1,5 @@
-import type { Timestamps } from './timestamps.js';
-import type { OrganizationId } from './ids.js';
+import type { Timestamps } from "./timestamps.js";
+import type { OrganizationId } from "./ids.js";
 
 export interface ResourceMetadata extends Timestamps {
   organization_id: OrganizationId;

@@ -12,10 +12,12 @@ import {
   ToolSearchFilters,
   ToolResolverResult,
   ToolPromptRepresentation,
-} from './types';
-import { OpenAgentLogger, createChildLogger } from '@openagent/logger';
+} from "./types";
+import { OpenAgentLogger, createChildLogger } from "@openagent/logger";
 
-const logger: OpenAgentLogger = createChildLogger({ module: 'tool-system:registry' });
+const logger: OpenAgentLogger = createChildLogger({
+  module: "tool-system:registry",
+});
 
 export class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -34,7 +36,7 @@ export class ToolRegistry {
 
     this.indexTool(tool);
 
-    logger.info('Tool registered', {
+    logger.info("Tool registered", {
       tool_id: tool.id,
       slug: tool.slug,
       version: tool.metadata.version,
@@ -47,7 +49,7 @@ export class ToolRegistry {
     toolVersions.push(version);
     this.versions.set(version.tool_id, toolVersions);
 
-    logger.info('Tool version registered', {
+    logger.info("Tool version registered", {
       tool_id: version.tool_id,
       version: version.version,
     });
@@ -55,7 +57,10 @@ export class ToolRegistry {
 
   registerProvider(provider: ToolProvider): void {
     this.providers.set(provider.id, provider);
-    logger.info('Tool provider registered', { provider_id: provider.id, type: provider.provider_type });
+    logger.info("Tool provider registered", {
+      provider_id: provider.id,
+      type: provider.provider_type,
+    });
   }
 
   unregister(slug: string, version: string): boolean {
@@ -66,11 +71,11 @@ export class ToolRegistry {
     this.tools.delete(key);
     this.deindexTool(tool);
 
-    logger.info('Tool unregistered', { tool_id: tool.id, slug, version });
+    logger.info("Tool unregistered", { tool_id: tool.id, slug, version });
     return true;
   }
 
-  get(slug: string, version: string = '1.0'): ToolDefinition | undefined {
+  get(slug: string, version: string = "1.0"): ToolDefinition | undefined {
     return this.tools.get(this.getToolKey(slug, version));
   }
 
@@ -83,8 +88,10 @@ export class ToolRegistry {
 
   getLatest(slug: string): ToolDefinition | undefined {
     const versions = Array.from(this.tools.values())
-      .filter(t => t.slug === slug && t.status === 'ACTIVE')
-      .sort((a, b) => this.compareVersions(b.metadata.version, a.metadata.version));
+      .filter((t) => t.slug === slug && t.status === "ACTIVE")
+      .sort((a, b) =>
+        this.compareVersions(b.metadata.version, a.metadata.version),
+      );
     return versions[0];
   }
 
@@ -95,7 +102,9 @@ export class ToolRegistry {
   getLatestVersion(toolId: string): ToolVersion | undefined {
     const versions = this.getVersions(toolId);
     if (versions.length === 0) return undefined;
-    return versions.sort((a, b) => this.compareVersions(b.version, a.version))[0];
+    return versions.sort((a, b) =>
+      this.compareVersions(b.version, a.version),
+    )[0];
   }
 
   listTools(filters?: ToolSearchFilters): ToolDefinition[] {
@@ -111,11 +120,11 @@ export class ToolRegistry {
   search(query: string, filters?: ToolSearchFilters): ToolDefinition[] {
     const lowerQuery = query.toLowerCase();
     let tools = Array.from(this.tools.values()).filter(
-      t =>
+      (t) =>
         t.slug.toLowerCase().includes(lowerQuery) ||
         t.metadata.display_name.toLowerCase().includes(lowerQuery) ||
         t.metadata.description.toLowerCase().includes(lowerQuery) ||
-        t.metadata.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
+        t.metadata.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)),
     );
 
     if (filters) {
@@ -141,7 +150,10 @@ export class ToolRegistry {
     return this.providers.get(id);
   }
 
-  resolveCompatibleVersion(toolId: string, requestedVersion: string): ToolVersion | undefined {
+  resolveCompatibleVersion(
+    toolId: string,
+    requestedVersion: string,
+  ): ToolVersion | undefined {
     const versions = this.getVersions(toolId);
     if (versions.length === 0) return undefined;
 
@@ -149,17 +161,23 @@ export class ToolRegistry {
     if (!requested) return this.getLatestVersion(toolId);
 
     const compatible = versions
-      .filter(v => v.status === 'ACTIVE')
-      .filter(v => this.isCompatible(this.parseVersion(v.version)!, requested))
+      .filter((v) => v.status === "ACTIVE")
+      .filter((v) =>
+        this.isCompatible(this.parseVersion(v.version)!, requested),
+      )
       .sort((a, b) => this.compareVersions(b.version, a.version));
 
     return compatible[0];
   }
 
   checkCompatibility(toolId: string, version: string): boolean {
-    const toolVersion = this.getVersions(toolId).find(v => v.version === version);
+    const toolVersion = this.getVersions(toolId).find(
+      (v) => v.version === version,
+    );
     if (!toolVersion) return false;
-    return toolVersion.status === 'ACTIVE' || toolVersion.status === 'DEPRECATED';
+    return (
+      toolVersion.status === "ACTIVE" || toolVersion.status === "DEPRECATED"
+    );
   }
 
   toPromptRepresentation(tool: ToolDefinition): ToolPromptRepresentation {
@@ -178,7 +196,11 @@ export class ToolRegistry {
 
   private indexTool(tool: ToolDefinition): void {
     this.addToIndex(this.categoryIndex, tool.metadata.category, tool.id);
-    this.addToIndex(this.organizationIndex, tool.organization_id || 'global', tool.id);
+    this.addToIndex(
+      this.organizationIndex,
+      tool.organization_id || "global",
+      tool.id,
+    );
     this.addToIndex(this.providerIndex, tool.metadata.provider, tool.id);
 
     for (const cap of tool.metadata.capabilities) {
@@ -193,7 +215,11 @@ export class ToolRegistry {
 
   private deindexTool(tool: ToolDefinition): void {
     this.removeFromIndex(this.categoryIndex, tool.metadata.category, tool.id);
-    this.removeFromIndex(this.organizationIndex, tool.organization_id || 'global', tool.id);
+    this.removeFromIndex(
+      this.organizationIndex,
+      tool.organization_id || "global",
+      tool.id,
+    );
     this.removeFromIndex(this.providerIndex, tool.metadata.provider, tool.id);
 
     for (const cap of tool.metadata.capabilities) {
@@ -206,12 +232,20 @@ export class ToolRegistry {
     }
   }
 
-  private addToIndex<K>(index: Map<K, Set<string>>, key: K, toolId: string): void {
+  private addToIndex<K>(
+    index: Map<K, Set<string>>,
+    key: K,
+    toolId: string,
+  ): void {
     if (!index.has(key)) index.set(key, new Set());
     index.get(key)!.add(toolId);
   }
 
-  private removeFromIndex<K>(index: Map<K, Set<string>>, key: K, toolId: string): void {
+  private removeFromIndex<K>(
+    index: Map<K, Set<string>>,
+    key: K,
+    toolId: string,
+  ): void {
     const set = index.get(key);
     if (set) {
       set.delete(toolId);
@@ -219,26 +253,51 @@ export class ToolRegistry {
     }
   }
 
-  private applyFilters(tools: ToolDefinition[], filters: ToolSearchFilters): ToolDefinition[] {
-    return tools.filter(tool => {
-      if (filters.category && tool.metadata.category !== filters.category) return false;
-      if (filters.capability && !tool.metadata.capabilities.includes(filters.capability)) return false;
-      if (filters.risk_level && tool.metadata.risk_level !== filters.risk_level) return false;
-      if (filters.organization_id && tool.organization_id !== filters.organization_id) return false;
-      if (filters.provider && tool.metadata.provider !== filters.provider) return false;
+  private applyFilters(
+    tools: ToolDefinition[],
+    filters: ToolSearchFilters,
+  ): ToolDefinition[] {
+    return tools.filter((tool) => {
+      if (filters.category && tool.metadata.category !== filters.category)
+        return false;
+      if (
+        filters.capability &&
+        !tool.metadata.capabilities.includes(filters.capability)
+      )
+        return false;
+      if (filters.risk_level && tool.metadata.risk_level !== filters.risk_level)
+        return false;
+      if (
+        filters.organization_id &&
+        tool.organization_id !== filters.organization_id
+      )
+        return false;
+      if (filters.provider && tool.metadata.provider !== filters.provider)
+        return false;
       if (filters.status && tool.status !== filters.status) return false;
-      if (filters.trust_level && tool.metadata.trust_level !== filters.trust_level) return false;
+      if (
+        filters.trust_level &&
+        tool.metadata.trust_level !== filters.trust_level
+      )
+        return false;
       if (filters.tags && filters.tags.length > 0) {
-        if (!filters.tags.some(tag => tool.metadata.tags.includes(tag))) return false;
+        if (!filters.tags.some((tag) => tool.metadata.tags.includes(tag)))
+          return false;
       }
       return true;
     });
   }
 
-  private parseVersion(version: string): { major: number; minor: number; patch: number } | null {
+  private parseVersion(
+    version: string,
+  ): { major: number; minor: number; patch: number } | null {
     const match = version.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
     if (!match) return null;
-    return { major: parseInt(match[1]), minor: parseInt(match[2]), patch: parseInt(match[3]) };
+    return {
+      major: parseInt(match[1]),
+      minor: parseInt(match[2]),
+      patch: parseInt(match[3]),
+    };
   }
 
   private compareVersions(a: string, b: string): number {
@@ -250,10 +309,14 @@ export class ToolRegistry {
     return va.patch - vb.patch;
   }
 
-  private isCompatible(current: { major: number; minor: number; patch: number }, requested: { major: number; minor: number; patch: number }): boolean {
+  private isCompatible(
+    current: { major: number; minor: number; patch: number },
+    requested: { major: number; minor: number; patch: number },
+  ): boolean {
     if (current.major !== requested.major) return false;
     if (current.minor < requested.minor) return false;
-    if (current.minor === requested.minor && current.patch < requested.patch) return false;
+    if (current.minor === requested.minor && current.patch < requested.patch)
+      return false;
     return true;
   }
 }

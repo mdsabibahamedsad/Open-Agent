@@ -21,12 +21,21 @@ export interface ResearchPlan {
   queries: string[];
 }
 
-export function buildResearchPlan(objective: string, allowedDomains: string[] = [], maxSteps = 25): ResearchPlan {
+export function buildResearchPlan(
+  objective: string,
+  allowedDomains: string[] = [],
+  maxSteps = 25,
+): ResearchPlan {
   const queries = [objective.slice(0, 200)];
   return { objective, allowedDomains, maxSteps, queries };
 }
 
-export function compileResearchEvidence(objective: string, sources: ResearchSource[]): ResearchResult {
-  const summary = sources.map((s) => `- ${s.title} (${s.url}): ${s.excerpt.slice(0, 300)}`).join('\n');
+export function compileResearchEvidence(
+  objective: string,
+  sources: ResearchSource[],
+): ResearchResult {
+  const summary = sources
+    .map((s) => `- ${s.title} (${s.url}): ${s.excerpt.slice(0, 300)}`)
+    .join("\n");
   return { objective, summary, sources };
 }

@@ -33,7 +33,11 @@ function goodManifest(): Record<string, unknown> {
 
 describe("validateManifestObject", () => {
   it("accepts a good manifest", () => {
-    const { errors } = validateManifestObject(goodManifest(), "openagent.yaml", GOOD_YAML);
+    const { errors } = validateManifestObject(
+      goodManifest(),
+      "openagent.yaml",
+      GOOD_YAML,
+    );
     expect(errors).toEqual([]);
   });
 
@@ -48,7 +52,9 @@ describe("validateManifestObject", () => {
     const m = goodManifest();
     m.permissions = ["teleport:anywhere"];
     const { errors } = validateManifestObject(m, "openagent.yaml", GOOD_YAML);
-    expect(errors.some((e) => (e.field ?? "").startsWith("permissions"))).toBe(true);
+    expect(errors.some((e) => (e.field ?? "").startsWith("permissions"))).toBe(
+      true,
+    );
   });
 
   it("requires allowed_hosts for network:outbound", () => {
@@ -60,7 +66,9 @@ describe("validateManifestObject", () => {
 
   it("accepts network:outbound with allowed_hosts", () => {
     const m = goodManifest();
-    m.permissions = [{ permission: "network:outbound", allowed_hosts: ["api.example.com"] }];
+    m.permissions = [
+      { permission: "network:outbound", allowed_hosts: ["api.example.com"] },
+    ];
     const { errors } = validateManifestObject(m, "openagent.yaml", GOOD_YAML);
     expect(errors).toEqual([]);
   });

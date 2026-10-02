@@ -1,21 +1,33 @@
 // OpenAgent Connector SDK — build connectors without modifying core.
 // Target: Core → SDK → Connector Package. Version: 0.1.0.
 
-export const CONNECTOR_SDK_VERSION = '0.1.0';
+export const CONNECTOR_SDK_VERSION = "0.1.0";
 
 export type ConnectorType =
-  | 'OFFICIAL' | 'COMMUNITY' | 'CUSTOM' | 'INTERNAL'
-  | 'MCP_BACKED' | 'HTTP_GENERIC' | 'DATABASE' | 'WEBHOOK_ONLY';
+  | "OFFICIAL"
+  | "COMMUNITY"
+  | "CUSTOM"
+  | "INTERNAL"
+  | "MCP_BACKED"
+  | "HTTP_GENERIC"
+  | "DATABASE"
+  | "WEBHOOK_ONLY";
 
 export type TrustTier =
-  | 'CORE' | 'VERIFIED' | 'ORGANIZATION' | 'COMMUNITY' | 'CUSTOM' | 'UNTRUSTED';
+  "CORE" | "VERIFIED" | "ORGANIZATION" | "COMMUNITY" | "CUSTOM" | "UNTRUSTED";
 
 export type AuthType =
-  | 'oauth2' | 'api_key' | 'basic' | 'jwt'
-  | 'service_account' | 'custom_header' | 'none';
+  | "oauth2"
+  | "api_key"
+  | "basic"
+  | "jwt"
+  | "service_account"
+  | "custom_header"
+  | "none";
 
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type TriggerKind = 'webhook' | 'polling' | 'schedule' | 'event' | 'manual';
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type TriggerKind =
+  "webhook" | "polling" | "schedule" | "event" | "manual";
 
 export interface JsonSchema {
   type: string;
@@ -94,33 +106,44 @@ export interface ConnectorManifest {
 
 const SLUG = /^[a-z0-9][a-z0-9_.-]{1,63}$/;
 const VERSION = /^\d+\.\d+\.\d+([-.+][0-9A-Za-z.-]+)?$/;
-const KNOWN_AUTH: AuthType[] = ['oauth2', 'api_key', 'basic', 'jwt', 'service_account', 'custom_header', 'none'];
-const KNOWN_RISK: RiskLevel[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const KNOWN_AUTH: AuthType[] = [
+  "oauth2",
+  "api_key",
+  "basic",
+  "jwt",
+  "service_account",
+  "custom_header",
+  "none",
+];
+const KNOWN_RISK: RiskLevel[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
 export class ManifestError extends Error {
-  code = 'MANIFEST_INVALID';
+  code = "MANIFEST_INVALID";
 }
 
 /** Client-side manifest validation (server re-validates authoritatively). */
 export function validateManifest(raw: unknown): ConnectorManifest {
-  if (!raw || typeof raw !== 'object') throw new ManifestError('Manifest must be an object');
+  if (!raw || typeof raw !== "object")
+    throw new ManifestError("Manifest must be an object");
   const m = raw as Record<string, unknown>;
-  const id = String(m.id ?? '').toLowerCase();
+  const id = String(m.id ?? "").toLowerCase();
   if (!SLUG.test(id)) throw new ManifestError(`Invalid connector id '${m.id}'`);
-  if (typeof m.version !== 'string' || !VERSION.test(m.version)) {
+  if (typeof m.version !== "string" || !VERSION.test(m.version)) {
     throw new ManifestError(`Invalid semantic version '${m.version}'`);
   }
   const auth = (m.auth ?? {}) as Record<string, unknown>;
-  if (!KNOWN_AUTH.includes(String(auth.type ?? 'none') as AuthType)) {
+  if (!KNOWN_AUTH.includes(String(auth.type ?? "none") as AuthType)) {
     throw new ManifestError(`Unknown auth type '${auth.type}'`);
   }
   const capabilities = (m.capabilities ?? []) as CapabilityDef[];
   if (!Array.isArray(capabilities) || capabilities.length === 0) {
-    throw new ManifestError('Manifest must declare at least one capability');
+    throw new ManifestError("Manifest must declare at least one capability");
   }
   for (const c of capabilities) {
-    if (!String(c.id ?? '').startsWith(`${id}.`)) {
-      throw new ManifestError(`Capability '${c.id}' must be namespaced '${id}.*'`);
+    if (!String(c.id ?? "").startsWith(`${id}.`)) {
+      throw new ManifestError(
+        `Capability '${c.id}' must be namespaced '${id}.*'`,
+      );
     }
     if (c.risk_level && !KNOWN_RISK.includes(c.risk_level)) {
       throw new ManifestError(`Unknown risk_level '${c.risk_level}'`);
@@ -129,45 +152,61 @@ export function validateManifest(raw: unknown): ConnectorManifest {
   const known = new Set(capabilities.map((c) => c.id));
   const actions = (m.actions ?? []) as ActionDef[];
   for (const a of actions) {
-    if (!String(a.id ?? '').startsWith(`${id}.`)) {
+    if (!String(a.id ?? "").startsWith(`${id}.`)) {
       throw new ManifestError(`Action '${a.id}' must be namespaced '${id}.*'`);
     }
-    if (!a.input_schema || a.input_schema.type !== 'object') {
-      throw new ManifestError(`Action '${a.id}' input_schema must be a JSON object schema`);
+    if (!a.input_schema || a.input_schema.type !== "object") {
+      throw new ManifestError(
+        `Action '${a.id}' input_schema must be a JSON object schema`,
+      );
     }
     for (const cap of a.required_capabilities ?? []) {
-      if (!known.has(cap)) throw new ManifestError(`Action '${a.id}' requires unknown capability '${cap}'`);
+      if (!known.has(cap))
+        throw new ManifestError(
+          `Action '${a.id}' requires unknown capability '${cap}'`,
+        );
     }
   }
-  if (!String(m.name ?? '').trim()) throw new ManifestError('Connector requires a name');
+  if (!String(m.name ?? "").trim())
+    throw new ManifestError("Connector requires a name");
   const scopes = (m.scopes ?? []) as string[];
-  if (scopes.length > 64) throw new ManifestError('Excessive scope request (>64) rejected');
+  if (scopes.length > 64)
+    throw new ManifestError("Excessive scope request (>64) rejected");
   return m as unknown as ConnectorManifest;
 }
 
 /** Scaffold a new connector package (mirrors scripts/connector-new.py output). */
-export function scaffoldConnector(id: string, name: string): Record<string, string> {
-  const slug = id.toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+export function scaffoldConnector(
+  id: string,
+  name: string,
+): Record<string, string> {
+  const slug = id.toLowerCase().replace(/[^a-z0-9_.-]/g, "_");
   const manifest: ConnectorManifest = {
     id: slug,
     name,
-    version: '1.0.0',
-    category: 'automation',
-    type: 'CUSTOM',
-    trust: 'CUSTOM',
+    version: "1.0.0",
+    category: "automation",
+    type: "CUSTOM",
+    trust: "CUSTOM",
     description: `${name} connector.`,
-    publisher: '',
-    license: '',
-    auth: { type: 'api_key' },
-    capabilities: [{ id: `${slug}.items.read`, description: 'Read items', risk_level: 'LOW' }],
+    publisher: "",
+    license: "",
+    auth: { type: "api_key" },
+    capabilities: [
+      {
+        id: `${slug}.items.read`,
+        description: "Read items",
+        risk_level: "LOW",
+      },
+    ],
     actions: [
       {
         id: `${slug}.list_items`,
-        name: 'List items',
-        description: 'List items.',
-        input_schema: { type: 'object', properties: {}, required: [] },
+        name: "List items",
+        description: "List items.",
+        input_schema: { type: "object", properties: {}, required: [] },
         required_capabilities: [`${slug}.items.read`],
-        risk_level: 'LOW',
+        risk_level: "LOW",
         mutation: false,
       },
     ],
@@ -176,8 +215,8 @@ export function scaffoldConnector(id: string, name: string): Record<string, stri
     scopes: [],
   };
   return {
-    'manifest.json': JSON.stringify(manifest, null, 2),
-    'README.md': `# ${name} connector\n\nFill in authentication, actions, and tests.\n`,
+    "manifest.json": JSON.stringify(manifest, null, 2),
+    "README.md": `# ${name} connector\n\nFill in authentication, actions, and tests.\n`,
   };
 }
 

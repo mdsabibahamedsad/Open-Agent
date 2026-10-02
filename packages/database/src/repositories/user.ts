@@ -1,6 +1,10 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { BaseRepository, PaginationParams, PaginatedResult } from '../repository.js';
-import type { UserId, OrganizationId } from '@openagent/types';
+import { PrismaClient, Prisma } from "@prisma/client";
+import {
+  BaseRepository,
+  PaginationParams,
+  PaginatedResult,
+} from "../repository.js";
+import type { UserId, OrganizationId } from "@openagent/types";
 
 export interface CreateUserData {
   email: string;
@@ -48,8 +52,13 @@ export interface UserWithMemberships {
   }>;
 }
 
-export class UserRepository extends BaseRepository<any, CreateUserData, UpdateUserData, any> {
-  protected readonly model = 'user' as any;
+export class UserRepository extends BaseRepository<
+  any,
+  CreateUserData,
+  UpdateUserData,
+  any
+> {
+  protected readonly model = "user" as any;
 
   constructor(prisma: PrismaClient) {
     super(prisma);
@@ -59,7 +68,9 @@ export class UserRepository extends BaseRepository<any, CreateUserData, UpdateUs
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async findByIdWithMemberships(id: UserId): Promise<UserWithMemberships | null> {
+  async findByIdWithMemberships(
+    id: UserId,
+  ): Promise<UserWithMemberships | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -74,7 +85,7 @@ export class UserRepository extends BaseRepository<any, CreateUserData, UpdateUs
 
   async findByOrganization(
     organizationId: OrganizationId,
-    params: PaginationParams
+    params: PaginationParams,
   ): Promise<PaginatedResult<UserWithMemberships>> {
     const where = {
       memberships: { some: { organization_id: organizationId } },
@@ -114,7 +125,7 @@ export class UserRepository extends BaseRepository<any, CreateUserData, UpdateUs
   async createWithMembership(
     userData: CreateUserData,
     organizationId: OrganizationId,
-    role: string = 'member'
+    role: string = "member",
   ): Promise<UserWithMemberships> {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const user = await tx.user.create({ data: userData as any });
@@ -125,7 +136,9 @@ export class UserRepository extends BaseRepository<any, CreateUserData, UpdateUs
           role,
         },
       });
-      return this.findByIdWithMemberships(user.id as UserId) as Promise<UserWithMemberships>;
+      return this.findByIdWithMemberships(
+        user.id as UserId,
+      ) as Promise<UserWithMemberships>;
     });
   }
 

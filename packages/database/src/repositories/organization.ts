@@ -1,6 +1,10 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { BaseRepository, PaginationParams, PaginatedResult } from '../repository.js';
-import type { OrganizationId, UserId } from '@openagent/types';
+import { PrismaClient, Prisma } from "@prisma/client";
+import {
+  BaseRepository,
+  PaginationParams,
+  PaginatedResult,
+} from "../repository.js";
+import type { OrganizationId, UserId } from "@openagent/types";
 
 export interface CreateOrganizationData {
   name: string;
@@ -48,8 +52,13 @@ export interface OrganizationWithMemberships {
   }>;
 }
 
-export class OrganizationRepository extends BaseRepository<any, CreateOrganizationData, UpdateOrganizationData, any> {
-  protected readonly model = 'organization' as any;
+export class OrganizationRepository extends BaseRepository<
+  any,
+  CreateOrganizationData,
+  UpdateOrganizationData,
+  any
+> {
+  protected readonly model = "organization" as any;
 
   constructor(prisma: PrismaClient) {
     super(prisma);
@@ -59,7 +68,9 @@ export class OrganizationRepository extends BaseRepository<any, CreateOrganizati
     return this.prisma.organization.findUnique({ where: { slug } });
   }
 
-  async findByIdWithMemberships(id: OrganizationId): Promise<OrganizationWithMemberships | null> {
+  async findByIdWithMemberships(
+    id: OrganizationId,
+  ): Promise<OrganizationWithMemberships | null> {
     const org = await this.prisma.organization.findUnique({
       where: { id },
       include: {
@@ -72,7 +83,10 @@ export class OrganizationRepository extends BaseRepository<any, CreateOrganizati
     return org as OrganizationWithMemberships | null;
   }
 
-  async findByUser(userId: UserId, params: PaginationParams): Promise<PaginatedResult<OrganizationWithMemberships>> {
+  async findByUser(
+    userId: UserId,
+    params: PaginationParams,
+  ): Promise<PaginatedResult<OrganizationWithMemberships>> {
     const where = {
       memberships: { some: { user_id: userId } },
       deleted_at: null,
@@ -110,25 +124,29 @@ export class OrganizationRepository extends BaseRepository<any, CreateOrganizati
 
   async createWithOwner(
     orgData: CreateOrganizationData,
-    ownerId: UserId
+    ownerId: UserId,
   ): Promise<OrganizationWithMemberships> {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const organization = await tx.organization.create({ data: orgData as any });
+      const organization = await tx.organization.create({
+        data: orgData as any,
+      });
       await tx.membership.create({
         data: {
           user_id: ownerId,
           organization_id: organization.id,
-          role: 'owner',
+          role: "owner",
         },
       });
-      return this.findByIdWithMemberships(organization.id as OrganizationId) as Promise<OrganizationWithMemberships>;
+      return this.findByIdWithMemberships(
+        organization.id as OrganizationId,
+      ) as Promise<OrganizationWithMemberships>;
     });
   }
 
   async addMember(
     organizationId: OrganizationId,
     userId: UserId,
-    role: string = 'member'
+    role: string = "member",
   ): Promise<any> {
     return this.prisma.membership.create({
       data: {
@@ -139,10 +157,16 @@ export class OrganizationRepository extends BaseRepository<any, CreateOrganizati
     });
   }
 
-  async removeMember(organizationId: OrganizationId, userId: UserId): Promise<void> {
+  async removeMember(
+    organizationId: OrganizationId,
+    userId: UserId,
+  ): Promise<void> {
     await this.prisma.membership.delete({
       where: {
-        user_id_organization_id: { user_id: userId, organization_id: organizationId },
+        user_id_organization_id: {
+          user_id: userId,
+          organization_id: organizationId,
+        },
       },
     });
   }
@@ -150,32 +174,54 @@ export class OrganizationRepository extends BaseRepository<any, CreateOrganizati
   async updateMemberRole(
     organizationId: OrganizationId,
     userId: UserId,
-    role: string
+    role: string,
   ): Promise<any> {
     return this.prisma.membership.update({
       where: {
-        user_id_organization_id: { user_id: userId, organization_id: organizationId },
+        user_id_organization_id: {
+          user_id: userId,
+          organization_id: organizationId,
+        },
       },
       data: { role },
     });
   }
 
-  async getUserRole(organizationId: OrganizationId, userId: UserId): Promise<string | null> {
+  async getUserRole(
+    organizationId: OrganizationId,
+    userId: UserId,
+  ): Promise<string | null> {
     const membership = await this.prisma.membership.findUnique({
-      where: { user_id_organization_id: { user_id: userId, organization_id: organizationId } },
+      where: {
+        user_id_organization_id: {
+          user_id: userId,
+          organization_id: organizationId,
+        },
+      },
     });
     return membership?.role ?? null;
   }
 
-  async isMember(organizationId: OrganizationId, userId: UserId): Promise<boolean> {
+  async isMember(
+    organizationId: OrganizationId,
+    userId: UserId,
+  ): Promise<boolean> {
     const membership = await this.prisma.membership.findUnique({
-      where: { user_id_organization_id: { user_id: userId, organization_id: organizationId } },
+      where: {
+        user_id_organization_id: {
+          user_id: userId,
+          organization_id: organizationId,
+        },
+      },
     });
     return !!membership;
   }
 
-  async isOwnerOrAdmin(organizationId: OrganizationId, userId: UserId): Promise<boolean> {
+  async isOwnerOrAdmin(
+    organizationId: OrganizationId,
+    userId: UserId,
+  ): Promise<boolean> {
     const role = await this.getUserRole(organizationId, userId);
-    return role === 'owner' || role === 'admin';
+    return role === "owner" || role === "admin";
   }
 }

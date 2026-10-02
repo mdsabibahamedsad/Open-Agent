@@ -1,22 +1,26 @@
-export * from './types';
-export * from './registry';
-export * from './execution';
-export * from './policy';
-export * from './risk';
-export * from './credentials';
-export * from './secrets';
-export * from './rate-limiter';
-export * from './builtins';
-export * from './integrations';
+export * from "./types";
+export * from "./registry";
+export * from "./execution";
+export * from "./policy";
+export * from "./risk";
+export * from "./credentials";
+export * from "./secrets";
+export * from "./rate-limiter";
+export * from "./builtins";
+export * from "./integrations";
 
-import { ToolRegistry } from './registry';
-import { ToolExecutionRuntime, ToolExecutionOptions } from './execution';
-import { PolicyEngine, createDefaultGlobalPolicy } from './policy';
-import { RiskEngine } from './risk';
-import { CredentialResolver, CredentialManager } from './credentials';
-import { SecretRedactor, createSecretRedactor } from './secrets';
-import { RateLimiter, createRateLimiter } from './rate-limiter';
-import { BuiltinToolAdapter, BUILTIN_TOOLS, createBuiltinAdapter } from './builtins';
+import { ToolRegistry } from "./registry";
+import { ToolExecutionRuntime, ToolExecutionOptions } from "./execution";
+import { PolicyEngine, createDefaultGlobalPolicy } from "./policy";
+import { RiskEngine } from "./risk";
+import { CredentialResolver, CredentialManager } from "./credentials";
+import { SecretRedactor, createSecretRedactor } from "./secrets";
+import { RateLimiter, createRateLimiter } from "./rate-limiter";
+import {
+  BuiltinToolAdapter,
+  BUILTIN_TOOLS,
+  createBuiltinAdapter,
+} from "./builtins";
 import {
   MCPIntegration,
   BrowserIntegration,
@@ -26,7 +30,7 @@ import {
   createBrowserIntegration,
   createCodingIntegration,
   createMarketplaceIntegration,
-} from './integrations';
+} from "./integrations";
 
 export interface ToolSystemConfig {
   execution: ToolExecutionOptions;
@@ -50,7 +54,9 @@ export class ToolSystem {
 
   constructor(config: ToolSystemConfig) {
     this.registry = new ToolRegistry();
-    this.policyEngine = new PolicyEngine(config.globalPolicy || createDefaultGlobalPolicy());
+    this.policyEngine = new PolicyEngine(
+      config.globalPolicy || createDefaultGlobalPolicy(),
+    );
     this.riskEngine = new RiskEngine();
     this.credentialResolver = new CredentialResolver();
     this.credentialManager = new CredentialManager(this.credentialResolver);
@@ -62,13 +68,16 @@ export class ToolSystem {
       this.policyEngine,
       this.riskEngine,
       this.credentialResolver,
-      config.execution
+      config.execution,
     );
 
     this.builtinAdapter = createBuiltinAdapter();
     this.executionRuntime.registerAdapter(this.builtinAdapter);
 
-    this.mcpIntegration = createMCPIntegration(this.registry, this.executionRuntime);
+    this.mcpIntegration = createMCPIntegration(
+      this.registry,
+      this.executionRuntime,
+    );
     this.browserIntegration = createBrowserIntegration(this.registry);
     this.codingIntegration = createCodingIntegration(this.registry);
     this.marketplaceIntegration = createMarketplaceIntegration(this.registry);

@@ -1,7 +1,9 @@
-import { ToolRateLimitConfig } from './types';
-import { OpenAgentLogger, createChildLogger } from '@openagent/logger';
+import { ToolRateLimitConfig } from "./types";
+import { OpenAgentLogger, createChildLogger } from "@openagent/logger";
 
-const logger: OpenAgentLogger = createChildLogger({ module: 'tool-system:rate-limiter' });
+const logger: OpenAgentLogger = createChildLogger({
+  module: "tool-system:rate-limiter",
+});
 
 interface RateLimitBucket {
   count: number;
@@ -29,7 +31,7 @@ export class RateLimiter {
   async checkLimit(
     organizationId: string,
     userId?: string,
-    agentId?: string
+    agentId?: string,
   ): Promise<void> {
     const keys = this.getLimitKeys(organizationId, userId, agentId);
 
@@ -43,7 +45,7 @@ export class RateLimiter {
   private getLimitKeys(
     organizationId: string,
     userId?: string,
-    agentId?: string
+    agentId?: string,
   ): string[] {
     const keys = [`org:${organizationId}`];
     if (userId) keys.push(`user:${userId}`);
@@ -55,11 +57,19 @@ export class RateLimiter {
   private async checkMinuteLimit(key: string): Promise<void> {
     const now = Date.now();
     const minuteKey = `${key}:${Math.floor(now / 60000)}`;
-    const bucket = this.minuteBuckets.get(minuteKey) || { count: 0, resetTime: now + 60000, concurrent: 0 };
+    const bucket = this.minuteBuckets.get(minuteKey) || {
+      count: 0,
+      resetTime: now + 60000,
+      concurrent: 0,
+    };
 
     if (bucket.count >= this.config.requests_per_minute) {
       const retryAfter = Math.ceil((bucket.resetTime - now) / 1000);
-      throw new RateLimitExceededError('RATE_LIMIT_EXCEEDED', `Rate limit exceeded for ${key}`, retryAfter);
+      throw new RateLimitExceededError(
+        "RATE_LIMIT_EXCEEDED",
+        `Rate limit exceeded for ${key}`,
+        retryAfter,
+      );
     }
 
     bucket.count++;
@@ -70,9 +80,9 @@ export class RateLimiter {
     const current = this.concurrentCounts.get(key) || 0;
     if (current >= this.config.concurrent_executions) {
       throw new RateLimitExceededError(
-        'CONCURRENT_LIMIT_EXCEEDED',
+        "CONCURRENT_LIMIT_EXCEEDED",
         `Concurrent execution limit exceeded for ${key}`,
-        1
+        1,
       );
     }
 
@@ -80,7 +90,7 @@ export class RateLimiter {
   }
 
   private async checkDailyLimit(key: string): Promise<void> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
     const dailyKey = `${key}:${today}`;
     const bucket = this.dailyBuckets.get(dailyKey) || { count: 0, date: today };
 
@@ -90,7 +100,11 @@ export class RateLimiter {
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(0, 0, 0, 0);
       const retryAfter = Math.ceil((tomorrow.getTime() - Date.now()) / 1000);
-      throw new RateLimitExceededError('DAILY_LIMIT_EXCEEDED', `Daily limit exceeded for ${key}`, retryAfter);
+      throw new RateLimitExceededError(
+        "DAILY_LIMIT_EXCEEDED",
+        `Daily limit exceeded for ${key}`,
+        retryAfter,
+      );
     }
 
     bucket.count++;
@@ -98,19 +112,23 @@ export class RateLimiter {
   }
 
   private getDailyLimit(key: string): number {
-    if (key.startsWith('org:') && this.config.organization_quota) {
+    if (key.startsWith("org:") && this.config.organization_quota) {
       return this.config.organization_quota;
     }
-    if (key.startsWith('agent:') && this.config.agent_quota) {
+    if (key.startsWith("agent:") && this.config.agent_quota) {
       return this.config.agent_quota;
     }
-    if (key.startsWith('user:') && this.config.user_quota) {
+    if (key.startsWith("user:") && this.config.user_quota) {
       return this.config.user_quota;
     }
     return this.config.daily_execution_limit;
   }
 
-  releaseConcurrent(organizationId: string, userId?: string, agentId?: string): void {
+  releaseConcurrent(
+    organizationId: string,
+    userId?: string,
+    agentId?: string,
+  ): void {
     const keys = this.getLimitKeys(organizationId, userId, agentId);
     for (const key of keys) {
       const current = this.concurrentCounts.get(key) || 0;
@@ -120,22 +138,42 @@ export class RateLimiter {
     }
   }
 
-  getUsage(organizationId: string, userId?: string, agentId?: string): Record<string, { used: number; limit: number }> {
+  getUsage(
+    organizationId: string,
+    userId?: string,
+    agentId?: string,
+  ): Record<string, { used: number; limit: number }> {
     const keys = this.getLimitKeys(organizationId, userId, agentId);
     const usage: Record<string, { used: number; limit: number }> = {};
 
     for (const key of keys) {
       const now = Date.now();
       const minuteKey = `${key}:${Math.floor(now / 60000)}`;
-      const minuteBucket = this.minuteBuckets.get(minuteKey) || { count: 0, resetTime: 0, concurrent: 0 };
+      const minuteBucket = this.minuteBuckets.get(minuteKey) || {
+        count: 0,
+        resetTime: 0,
+        concurrent: 0,
+      };
       const concurrent = this.concurrentCounts.get(key) || 0;
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const dailyKey = `${key}:${today}`;
-      const dailyBucket = this.dailyBuckets.get(dailyKey) || { count: 0, date: today };
+      const dailyBucket = this.dailyBuckets.get(dailyKey) || {
+        count: 0,
+        date: today,
+      };
 
-      usage[`${key}:minute`] = { used: minuteBucket.count, limit: this.config.requests_per_minute };
-      usage[`${key}:concurrent`] = { used: concurrent, limit: this.config.concurrent_executions };
-      usage[`${key}:daily`] = { used: dailyBucket.count, limit: this.getDailyLimit(key) };
+      usage[`${key}:minute`] = {
+        used: minuteBucket.count,
+        limit: this.config.requests_per_minute,
+      };
+      usage[`${key}:concurrent`] = {
+        used: concurrent,
+        limit: this.config.concurrent_executions,
+      };
+      usage[`${key}:daily`] = {
+        used: dailyBucket.count,
+        limit: this.getDailyLimit(key),
+      };
     }
 
     return usage;
@@ -148,7 +186,7 @@ export class RateLimiter {
       const minuteKey = `${key}:${Math.floor(now / 60000)}`;
       this.minuteBuckets.delete(minuteKey);
       this.concurrentCounts.delete(key);
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const dailyKey = `${key}:${today}`;
       this.dailyBuckets.delete(dailyKey);
     }
@@ -156,7 +194,7 @@ export class RateLimiter {
 
   private cleanup(): void {
     const now = Date.now();
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
 
     for (const [key, bucket] of this.minuteBuckets.entries()) {
       if (bucket.resetTime < now) {
@@ -182,13 +220,15 @@ export class RateLimitExceededError extends Error {
 
   constructor(code: string, message: string, retryAfter: number) {
     super(message);
-    this.name = 'RateLimitExceededError';
+    this.name = "RateLimitExceededError";
     this.code = code;
     this.retryAfter = retryAfter;
   }
 }
 
-export function createRateLimiter(config?: Partial<ToolRateLimitConfig>): RateLimiter {
+export function createRateLimiter(
+  config?: Partial<ToolRateLimitConfig>,
+): RateLimiter {
   const defaultConfig: ToolRateLimitConfig = {
     requests_per_minute: 60,
     concurrent_executions: 10,

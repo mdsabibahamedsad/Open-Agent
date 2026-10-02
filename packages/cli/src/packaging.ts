@@ -23,7 +23,8 @@ const CRC_TABLE = (() => {
 
 export function crc32(buf: Buffer): number {
   let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]!) & 0xff]! ^ (c >>> 8);
+  for (let i = 0; i < buf.length; i++)
+    c = CRC_TABLE[(c ^ buf[i]!) & 0xff]! ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 
@@ -55,7 +56,11 @@ function localHeader(entry: ZipEntry, compressedSize: number): Buffer {
   return Buffer.concat([h, nameBuf]);
 }
 
-function centralHeader(entry: ZipEntry, compressedSize: number, offset: number): Buffer {
+function centralHeader(
+  entry: ZipEntry,
+  compressedSize: number,
+  offset: number,
+): Buffer {
   const nameBuf = Buffer.from(entry.name, "utf8");
   const h = Buffer.alloc(46);
   h.writeUInt32LE(0x02014b50, 0);
@@ -80,18 +85,28 @@ function centralHeader(entry: ZipEntry, compressedSize: number, offset: number):
 }
 
 /** Build a deterministic zip archive from sorted entries. */
-export function buildZip(entries: Array<{ name: string; data: Buffer }>): Buffer {
-  const sorted = [...entries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+export function buildZip(
+  entries: Array<{ name: string; data: Buffer }>,
+): Buffer {
+  const sorted = [...entries].sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  );
   for (const e of sorted) {
-    if (e.name.startsWith("/") || e.name.includes("\\") || e.name.split("/").includes("..")) {
+    if (
+      e.name.startsWith("/") ||
+      e.name.includes("\\") ||
+      e.name.split("/").includes("..")
+    ) {
       throw new Error(`Unsafe zip entry name: ${e.name}`);
     }
   }
-  const zipped: Array<{ entry: ZipEntry; compressed: Buffer }> = sorted.map((e) => {
-    const data = Buffer.from(e.data);
-    const compressed = zlib.deflateRawSync(data, { level: 9, memLevel: 9 });
-    return { entry: { name: e.name, data, crc: crc32(data) }, compressed };
-  });
+  const zipped: Array<{ entry: ZipEntry; compressed: Buffer }> = sorted.map(
+    (e) => {
+      const data = Buffer.from(e.data);
+      const compressed = zlib.deflateRawSync(data, { level: 9, memLevel: 9 });
+      return { entry: { name: e.name, data, crc: crc32(data) }, compressed };
+    },
+  );
   const chunks: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;
@@ -131,16 +146,26 @@ export function readZip(buf: Buffer): Array<{ name: string; data: Buffer }> {
       break;
     }
   }
-  if (endOffset < 0) throw new Error("Invalid archive: end-of-central-directory not found.");
+  if (endOffset < 0)
+    throw new Error("Invalid archive: end-of-central-directory not found.");
   const count = buf.readUInt16LE(endOffset + 10);
   const centralSize = buf.readUInt32LE(endOffset + 12);
   const centralOffset = buf.readUInt32LE(endOffset + 16);
-  if (centralOffset + centralSize > buf.length) throw new Error("Invalid archive: central directory out of bounds.");
-  interface Central { name: string; localOffset: number; compSize: number; size: number; method: number; crc: number }
+  if (centralOffset + centralSize > buf.length)
+    throw new Error("Invalid archive: central directory out of bounds.");
+  interface Central {
+    name: string;
+    localOffset: number;
+    compSize: number;
+    size: number;
+    method: number;
+    crc: number;
+  }
   const centrals: Central[] = [];
   let p = centralOffset;
   for (let i = 0; i < count; i++) {
-    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error("Invalid archive: bad central header.");
+    if (buf.readUInt32LE(p) !== 0x02014b50)
+      throw new Error("Invalid archive: bad central header.");
     const method = buf.readUInt16LE(p + 10);
     const crc = buf.readUInt32LE(p + 16);
     const compSize = buf.readUInt32LE(p + 20);
@@ -156,7 +181,8 @@ export function readZip(buf: Buffer): Array<{ name: string; data: Buffer }> {
   const out: Array<{ name: string; data: Buffer }> = [];
   for (const c of centrals) {
     assertSafeName(c.name);
-    if (buf.readUInt32LE(c.localOffset) !== 0x04034b50) throw new Error(`Invalid archive: bad local header for ${c.name}.`);
+    if (buf.readUInt32LE(c.localOffset) !== 0x04034b50)
+      throw new Error(`Invalid archive: bad local header for ${c.name}.`);
     const nameLen = buf.readUInt16LE(c.localOffset + 26);
     const extraLen = buf.readUInt16LE(c.localOffset + 28);
     const dataStart = c.localOffset + 30 + nameLen + extraLen;
@@ -164,28 +190,57 @@ export function readZip(buf: Buffer): Array<{ name: string; data: Buffer }> {
     let raw: Buffer;
     if (c.method === 0) raw = Buffer.from(comp);
     else if (c.method === 8) raw = zlib.inflateRawSync(comp);
-    else throw new Error(`Unsupported compression method ${c.method} for ${c.name}.`);
-    if (raw.length !== c.size) throw new Error(`Size mismatch for ${c.name}. Archive may be tampered.`);
-    if (crc32(raw) !== c.crc) throw new Error(`Checksum mismatch for ${c.name}. Archive may be tampered.`);
+    else
+      throw new Error(
+        `Unsupported compression method ${c.method} for ${c.name}.`,
+      );
+    if (raw.length !== c.size)
+      throw new Error(`Size mismatch for ${c.name}. Archive may be tampered.`);
+    if (crc32(raw) !== c.crc)
+      throw new Error(
+        `Checksum mismatch for ${c.name}. Archive may be tampered.`,
+      );
     out.push({ name: c.name, data: raw });
   }
   return out;
 }
 
 function assertSafeName(name: string): void {
-  if (name.startsWith("/") || name.includes("\\") || name.split("/").includes("..") || name.includes("\0")) {
+  if (
+    name.startsWith("/") ||
+    name.includes("\\") ||
+    name.split("/").includes("..") ||
+    name.includes("\0")
+  ) {
     throw new Error(`Unsafe entry name in archive: ${name}`);
   }
 }
 
-const EXCLUDE_DIRS = new Set(["node_modules", ".git", "dist", ".venv", "__pycache__", ".turbo", "coverage"]);
+const EXCLUDE_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  ".venv",
+  "__pycache__",
+  ".turbo",
+  "coverage",
+]);
 
-export function collectProjectFiles(projectDir: string): Array<{ name: string; data: Buffer }> {
+export function collectProjectFiles(
+  projectDir: string,
+): Array<{ name: string; data: Buffer }> {
   const out: Array<{ name: string; data: Buffer }> = [];
   const walk = (dir: string, rel: string) => {
-    const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+    const entries = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
     for (const e of entries) {
-      if (e.name === "openagent.yaml" || e.name === "openagent.yml" || e.name === "openagent.json") continue;
+      if (
+        e.name === "openagent.yaml" ||
+        e.name === "openagent.yml" ||
+        e.name === "openagent.json"
+      )
+        continue;
       if (e.name.endsWith(".oaext")) continue;
       const full = path.join(dir, e.name);
       const r = rel ? `${rel}/${e.name}` : e.name;
@@ -217,10 +272,16 @@ export interface PackageResult {
   entryCount: number;
 }
 
-export function packageProject(projectDir: string, opts: PackageOptions = {}): PackageResult {
+export function packageProject(
+  projectDir: string,
+  opts: PackageOptions = {},
+): PackageResult {
   const abs = path.resolve(projectDir);
   const manifestPath = findManifestPath(abs);
-  if (!manifestPath) throw new Error(`No openagent manifest found in ${abs}. Run \`openagent init\` first.`);
+  if (!manifestPath)
+    throw new Error(
+      `No openagent manifest found in ${abs}. Run \`openagent init\` first.`,
+    );
   const { manifest } = loadManifestFile(manifestPath);
   const m = manifest as Record<string, unknown>;
   const name = String(m.name ?? "extension");
@@ -229,14 +290,36 @@ export function packageProject(projectDir: string, opts: PackageOptions = {}): P
   const manifestJson = Buffer.from(JSON.stringify(m, null, 2) + "\n", "utf8");
   const projectFiles = collectProjectFiles(abs);
   const sbom = Buffer.from(
-    JSON.stringify({ bomFormat: "CycloneDX", specVersion: "1.5", version: 1, metadata: { component: { name, version }, timestamp: buildTime }, components: [] }, null, 2) + "\n",
+    JSON.stringify(
+      {
+        bomFormat: "CycloneDX",
+        specVersion: "1.5",
+        version: 1,
+        metadata: { component: { name, version }, timestamp: buildTime },
+        components: [],
+      },
+      null,
+      2,
+    ) + "\n",
     "utf8",
   );
   const provenance = Buffer.from(
-    JSON.stringify({ builder: "openagent-cli/1.0.0", buildTime, source: { manifest: path.basename(manifestPath) }, reproducible: true }, null, 2) + "\n",
+    JSON.stringify(
+      {
+        builder: "openagent-cli/1.0.0",
+        buildTime,
+        source: { manifest: path.basename(manifestPath) },
+        reproducible: true,
+      },
+      null,
+      2,
+    ) + "\n",
     "utf8",
   );
-  const signatures = Buffer.from(JSON.stringify({ signatures: [] }, null, 2) + "\n", "utf8");
+  const signatures = Buffer.from(
+    JSON.stringify({ signatures: [] }, null, 2) + "\n",
+    "utf8",
+  );
   const parts: Array<{ name: string; data: Buffer }> = [
     { name: "manifest.json", data: manifestJson },
     ...projectFiles,
@@ -244,15 +327,24 @@ export function packageProject(projectDir: string, opts: PackageOptions = {}): P
     { name: "provenance.json", data: provenance },
     { name: "signatures.json", data: signatures },
   ];
-  const checksums = [...parts]
-    .sort((a, b) => (a.name < b.name ? -1 : 1))
-    .map((e) => `${sha256Hex(e.data)}  ${e.name}`)
-    .join("\n") + "\n";
-  parts.push({ name: "CHECKSUMS.sha256", data: Buffer.from(checksums, "utf8") });
+  const checksums =
+    [...parts]
+      .sort((a, b) => (a.name < b.name ? -1 : 1))
+      .map((e) => `${sha256Hex(e.data)}  ${e.name}`)
+      .join("\n") + "\n";
+  parts.push({
+    name: "CHECKSUMS.sha256",
+    data: Buffer.from(checksums, "utf8"),
+  });
   const zip = buildZip(parts);
   const outPath = opts.outPath ?? path.join(abs, `${name}-${version}.oaext`);
   fs.writeFileSync(outPath, zip);
-  return { outPath, bytes: zip.length, sha256: sha256Hex(zip), entryCount: parts.length };
+  return {
+    outPath,
+    bytes: zip.length,
+    sha256: sha256Hex(zip),
+    entryCount: parts.length,
+  };
 }
 
 export interface InspectResult {
@@ -271,9 +363,16 @@ export function inspectPackage(archivePath: string): InspectResult {
   const manifestEntry = entries.find((e) => e.name === "manifest.json");
   if (!manifestEntry) throw new Error("Invalid .oaext: manifest.json missing.");
   const checksumEntry = entries.find((e) => e.name === "CHECKSUMS.sha256");
-  if (!checksumEntry) throw new Error("Invalid .oaext: CHECKSUMS.sha256 missing.");
-  const manifest = JSON.parse(manifestEntry.data.toString("utf8")) as Record<string, unknown>;
-  const lines = checksumEntry.data.toString("utf8").split("\n").filter((l) => l.trim() !== "");
+  if (!checksumEntry)
+    throw new Error("Invalid .oaext: CHECKSUMS.sha256 missing.");
+  const manifest = JSON.parse(manifestEntry.data.toString("utf8")) as Record<
+    string,
+    unknown
+  >;
+  const lines = checksumEntry.data
+    .toString("utf8")
+    .split("\n")
+    .filter((l) => l.trim() !== "");
   const expected = new Map<string, string>();
   for (const line of lines) {
     const mm = line.match(/^([0-9a-f]{64})\s+(.+)$/);
@@ -289,7 +388,16 @@ export function inspectPackage(archivePath: string): InspectResult {
       break;
     }
   }
-  if (!checksumsOk) throw new Error("Checksum verification FAILED: archive tampered or corrupt.");
+  if (!checksumsOk)
+    throw new Error(
+      "Checksum verification FAILED: archive tampered or corrupt.",
+    );
   const files = entries.filter((e) => e.name.startsWith("files/")).length;
-  return { path: archivePath, entries: names.sort(), manifest, checksumsOk: true, files };
+  return {
+    path: archivePath,
+    entries: names.sort(),
+    manifest,
+    checksumsOk: true,
+    files,
+  };
 }

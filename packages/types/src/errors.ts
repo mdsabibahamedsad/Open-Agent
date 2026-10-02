@@ -17,16 +17,16 @@ export interface ApiErrorResponse {
 }
 
 export const ERROR_CODES = {
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  NOT_FOUND: 'NOT_FOUND',
-  UNAUTHORIZED: 'UNAUTHORIZED',
-  FORBIDDEN: 'FORBIDDEN',
-  INTERNAL_ERROR: 'INTERNAL_ERROR',
-  CONFLICT: 'CONFLICT',
-  RATE_LIMITED: 'RATE_LIMITED',
-  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
-  BAD_REQUEST: 'BAD_REQUEST',
-  UNPROCESSABLE_ENTITY: 'UNPROCESSABLE_ENTITY',
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  CONFLICT: "CONFLICT",
+  RATE_LIMITED: "RATE_LIMITED",
+  SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE",
+  BAD_REQUEST: "BAD_REQUEST",
+  UNPROCESSABLE_ENTITY: "UNPROCESSABLE_ENTITY",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -36,7 +36,7 @@ export function createApiError(
   message: string,
   requestId: string,
   statusCode: number,
-  details?: ApiErrorDetail[]
+  details?: ApiErrorDetail[],
 ): ApiError {
   return {
     code,
@@ -49,11 +49,11 @@ export function createApiError(
 
 export function isApiError(error: unknown): error is ApiError {
   return (
-    typeof error === 'object' &&
+    typeof error === "object" &&
     error !== null &&
-    'code' in error &&
-    'message' in error &&
-    'request_id' in error &&
-    'status_code' in error
+    "code" in error &&
+    "message" in error &&
+    "request_id" in error &&
+    "status_code" in error
   );
 }

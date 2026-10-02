@@ -2,7 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildZip, inspectPackage, packageProject, readZip } from "./packaging.js";
+import {
+  buildZip,
+  inspectPackage,
+  packageProject,
+  readZip,
+} from "./packaging.js";
 
 function makeProject(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oa-pkg-"));
@@ -34,13 +39,17 @@ describe("packaging", () => {
     const dir = makeProject();
     const a = packageProject(dir, { outPath: path.join(dir, "a.oaext") });
     const b = packageProject(dir, { outPath: path.join(dir, "b.oaext") });
-    expect(fs.readFileSync(a.outPath).equals(fs.readFileSync(b.outPath))).toBe(true);
+    expect(fs.readFileSync(a.outPath).equals(fs.readFileSync(b.outPath))).toBe(
+      true,
+    );
     expect(a.sha256).toBe(b.sha256);
   });
 
   it("inspect ok and tamper detected", () => {
     const dir = makeProject();
-    const built = packageProject(dir, { outPath: path.join(dir, "demo-ext-0.1.0.oaext") });
+    const built = packageProject(dir, {
+      outPath: path.join(dir, "demo-ext-0.1.0.oaext"),
+    });
     const info = inspectPackage(built.outPath);
     expect(info.checksumsOk).toBe(true);
     expect(info.entries).toContain("manifest.json");

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,7 +15,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "lint": "prettier --check \"src/**/*.{ts,tsx,json}\""
   },
   "dependencies": {
     "@openagent/api-client": "workspace:*",

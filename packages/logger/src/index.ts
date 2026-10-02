@@ -1,6 +1,6 @@
-import pino, { Level, LogDescriptor } from 'pino';
-import { Env, isDevelopment } from '@openagent/config';
-import { generateRequestId } from '@openagent/core';
+import pino, { Level, LogDescriptor } from "pino";
+import { Env, isDevelopment } from "@openagent/config";
+import { generateRequestId } from "@openagent/core";
 
 export interface LogContext {
   request_id?: string;
@@ -27,16 +27,16 @@ function createLogger(env: Env, baseContext: LogContext = {}): OpenAgentLogger {
     level,
     transport: isDev
       ? {
-          target: 'pino-pretty',
+          target: "pino-pretty",
           options: {
             colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
+            translateTime: "SYS:standard",
+            ignore: "pid,hostname",
           },
         }
       : undefined,
     base: {
-      service: 'openagent',
+      service: "openagent",
       env: env.OPENAGENT_ENV,
       ...baseContext,
     },
@@ -46,20 +46,25 @@ function createLogger(env: Env, baseContext: LogContext = {}): OpenAgentLogger {
     timestamp: pino.stdTimeFunctions.isoTime,
     redact: {
       paths: [
-        '*.password',
-        '*.secret',
-        '*.token',
-        '*.api_key',
-        '*.apiKey',
-        '*.authorization',
-        '*.credit_card',
-        '*.ssn',
+        "*.password",
+        "*.secret",
+        "*.token",
+        "*.api_key",
+        "*.apiKey",
+        "*.authorization",
+        "*.credit_card",
+        "*.ssn",
       ],
-      censor: '[REDACTED]',
+      censor: "[REDACTED]",
     },
   });
 
-  function logWithContext(level: Level, message: string, context: LogContext = {}, error?: Error): void {
+  function logWithContext(
+    level: Level,
+    message: string,
+    context: LogContext = {},
+    error?: Error,
+  ): void {
     const logContext: LogDescriptor = { ...baseContext, ...context };
     if (error) {
       logContext.err = {
@@ -72,13 +77,19 @@ function createLogger(env: Env, baseContext: LogContext = {}): OpenAgentLogger {
   }
 
   return {
-    debug: (message, context) => logWithContext('debug', message, context),
-    info: (message, context) => logWithContext('info', message, context),
-    warn: (message, context) => logWithContext('warn', message, context),
-    error: (message, context, error) => logWithContext('error', message, context, error),
-    fatal: (message, context, error) => logWithContext('fatal', message, context, error),
+    debug: (message, context) => logWithContext("debug", message, context),
+    info: (message, context) => logWithContext("info", message, context),
+    warn: (message, context) => logWithContext("warn", message, context),
+    error: (message, context, error) =>
+      logWithContext("error", message, context, error),
+    fatal: (message, context, error) =>
+      logWithContext("fatal", message, context, error),
     child: (context) => createLogger(env, { ...baseContext, ...context }),
-    withRequestId: (requestId) => createLogger(env, { ...baseContext, request_id: requestId ?? generateRequestId() }),
+    withRequestId: (requestId) =>
+      createLogger(env, {
+        ...baseContext,
+        request_id: requestId ?? generateRequestId(),
+      }),
   };
 }
 
@@ -91,7 +102,7 @@ export function initializeLogger(env: Env): OpenAgentLogger {
 
 export function getLogger(): OpenAgentLogger {
   if (!globalLogger) {
-    throw new Error('Logger not initialized. Call initializeLogger first.');
+    throw new Error("Logger not initialized. Call initializeLogger first.");
   }
   return globalLogger;
 }

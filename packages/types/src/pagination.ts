@@ -21,16 +21,21 @@ export const DEFAULT_PAGE = 1;
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
-export function normalizePagination(params: Partial<PaginationParams>): PaginationParams {
+export function normalizePagination(
+  params: Partial<PaginationParams>,
+): PaginationParams {
   return {
     page: Math.max(1, params.page ?? DEFAULT_PAGE),
-    page_size: Math.min(MAX_PAGE_SIZE, Math.max(1, params.page_size ?? DEFAULT_PAGE_SIZE)),
+    page_size: Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, params.page_size ?? DEFAULT_PAGE_SIZE),
+    ),
   };
 }
 
 export function createPaginationMeta(
   params: PaginationParams,
-  totalItems: number
+  totalItems: number,
 ): PaginationMeta {
   const totalPages = Math.ceil(totalItems / params.page_size);
   return {

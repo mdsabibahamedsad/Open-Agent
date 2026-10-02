@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import http from "node:http";
 import { ApiClient } from "./http.js";
-import { getProfile, maskApiKey, removeProfileSecrets, saveProfile } from "./config.js";
+import {
+  getProfile,
+  maskApiKey,
+  removeProfileSecrets,
+  saveProfile,
+} from "./config.js";
 
 export interface LoginOptions {
   apiKey?: string;
@@ -26,41 +31,73 @@ function readStdin(): Promise<string> {
   });
 }
 
-export async function loginInteractive(opts: LoginOptions = {}): Promise<{ profile: string; apiUrl: string }> {
+export async function loginInteractive(
+  opts: LoginOptions = {},
+): Promise<{ profile: string; apiUrl: string }> {
   const base = getProfile(opts.profile, opts.org);
   const apiUrl = opts.apiUrl ?? base.apiUrl;
   const profileName = opts.profile ?? base.name;
 
   if (opts.apiKey) {
-    saveProfile(profileName, { apiUrl, apiKey: opts.apiKey.trim(), orgId: opts.org ?? base.orgId, makeActive: true });
+    saveProfile(profileName, {
+      apiUrl,
+      apiKey: opts.apiKey.trim(),
+      orgId: opts.org ?? base.orgId,
+      makeActive: true,
+    });
     return { profile: profileName, apiUrl };
   }
   if (opts.tokenStdin) {
     const token = (await readStdin()).trim();
-    if (!token) throw new Error("No token received on stdin. Pipe a token with --token.");
-    saveProfile(profileName, { apiUrl, apiKey: token, orgId: opts.org ?? base.orgId, makeActive: true });
+    if (!token)
+      throw new Error("No token received on stdin. Pipe a token with --token.");
+    saveProfile(profileName, {
+      apiUrl,
+      apiKey: token,
+      orgId: opts.org ?? base.orgId,
+      makeActive: true,
+    });
     return { profile: profileName, apiUrl };
   }
 
   // Browser device flow: try server device endpoints, fallback to manual paste.
   const client = new ApiClient({ baseUrl: apiUrl, timeoutMs: 10_000 });
-  let device: { device_code?: string; user_code?: string; verification_uri?: string; verification_url?: string; expires_in?: number; interval?: number } | undefined;
+  let device:
+    | {
+        device_code?: string;
+        user_code?: string;
+        verification_uri?: string;
+        verification_url?: string;
+        expires_in?: number;
+        interval?: number;
+      }
+    | undefined;
   try {
-    device = await client.post("/api/v1/auth/device/code", { scopes: ["developer"] });
+    device = await client.post("/api/v1/auth/device/code", {
+      scopes: ["developer"],
+    });
   } catch {
     device = undefined;
   }
   if (!device || (!device.verification_uri && !device.verification_url)) {
     // Manual fallback: prompt for key.
-    process.stdout.write(`Open ${apiUrl}/login in your browser, create an API key, then paste it below.\n`);
+    process.stdout.write(
+      `Open ${apiUrl}/login in your browser, create an API key, then paste it below.\n`,
+    );
     process.stdout.write("API key: ");
     const pasted = await readStdinLine();
     if (!pasted) throw new Error("Login cancelled: no API key provided.");
-    saveProfile(profileName, { apiUrl, apiKey: pasted.trim(), orgId: opts.org ?? base.orgId, makeActive: true });
+    saveProfile(profileName, {
+      apiUrl,
+      apiKey: pasted.trim(),
+      orgId: opts.org ?? base.orgId,
+      makeActive: true,
+    });
     return { profile: profileName, apiUrl };
   }
 
-  const verifyUrl = device.verification_uri ?? device.verification_url ?? `${apiUrl}/login`;
+  const verifyUrl =
+    device.verification_uri ?? device.verification_url ?? `${apiUrl}/login`;
   process.stdout.write(`\nVisit to authorize:\n  ${verifyUrl}\n`);
   if (device.user_code) process.stdout.write(`Code: ${device.user_code}\n`);
   process.stdout.write("Waiting for authorization… (Ctrl+C to cancel)\n");
@@ -68,15 +105,27 @@ export async function loginInteractive(opts: LoginOptions = {}): Promise<{ profi
   const intervalMs = Math.max(2000, (device.interval ?? 5) * 1000);
   const deadline = Date.now() + (device.expires_in ?? 600) * 1000;
   for (;;) {
-    if (Date.now() > deadline) throw new Error("Device authorization expired. Run `openagent login` again.");
+    if (Date.now() > deadline)
+      throw new Error(
+        "Device authorization expired. Run `openagent login` again.",
+      );
     await new Promise((r) => setTimeout(r, intervalMs));
     try {
-      const tok = await client.post<{ api_key?: string; token?: string; access_token?: string }>("/api/v1/auth/device/token", {
+      const tok = await client.post<{
+        api_key?: string;
+        token?: string;
+        access_token?: string;
+      }>("/api/v1/auth/device/token", {
         device_code: device.device_code,
       });
       const key = tok.api_key ?? tok.token ?? tok.access_token;
       if (key) {
-        saveProfile(profileName, { apiUrl, apiKey: key, orgId: opts.org ?? base.orgId, makeActive: true });
+        saveProfile(profileName, {
+          apiUrl,
+          apiKey: key,
+          orgId: opts.org ?? base.orgId,
+          makeActive: true,
+        });
         return { profile: profileName, apiUrl };
       }
     } catch (e) {
@@ -84,10 +133,17 @@ export async function loginInteractive(opts: LoginOptions = {}): Promise<{ profi
       if (/pending|authorization_pending|slow_down/i.test(msg)) continue;
       // If token endpoint missing, fall back to manual paste.
       if (/404/.test(msg)) {
-        process.stdout.write("Server does not support device polling; paste an API key instead.\nAPI key: ");
+        process.stdout.write(
+          "Server does not support device polling; paste an API key instead.\nAPI key: ",
+        );
         const pasted = await readStdinLine();
         if (!pasted) throw new Error("Login cancelled.");
-        saveProfile(profileName, { apiUrl, apiKey: pasted.trim(), orgId: opts.org ?? base.orgId, makeActive: true });
+        saveProfile(profileName, {
+          apiUrl,
+          apiKey: pasted.trim(),
+          orgId: opts.org ?? base.orgId,
+          makeActive: true,
+        });
         return { profile: profileName, apiUrl };
       }
     }
@@ -125,7 +181,11 @@ export function logout(profile?: string): boolean {
   return removeProfileSecrets(base.name);
 }
 
-export async function whoami(apiUrl: string, apiKey: string | undefined, orgId: string | undefined): Promise<unknown> {
+export async function whoami(
+  apiUrl: string,
+  apiKey: string | undefined,
+  orgId: string | undefined,
+): Promise<unknown> {
   const client = new ApiClient({ baseUrl: apiUrl, apiKey, orgId });
   // Primary: GET /api/v1/auth/me; fallback: GET /api/v1/developer/sdk for connectivity.
   try {
@@ -134,16 +194,25 @@ export async function whoami(apiUrl: string, apiKey: string | undefined, orgId: 
     const msg = e instanceof Error ? e.message : String(e);
     if (/404/.test(msg)) {
       const sdk = await client.get("/api/v1/developer/sdk");
-      return { fallback: "auth/me not available; showing developer SDK metadata for connectivity", sdk, key: maskApiKey(apiKey) };
+      return {
+        fallback:
+          "auth/me not available; showing developer SDK metadata for connectivity",
+        sdk,
+        key: maskApiKey(apiKey),
+      };
     }
     throw e;
   }
 }
 
-export function startLocalCallbackServer(port: number, onToken: (token: string) => void): http.Server {
+export function startLocalCallbackServer(
+  port: number,
+  onToken: (token: string) => void,
+): http.Server {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
-    const token = url.searchParams.get("token") ?? url.searchParams.get("api_key");
+    const token =
+      url.searchParams.get("token") ?? url.searchParams.get("api_key");
     if (token) {
       onToken(token);
       res.writeHead(200, { "Content-Type": "text/plain" });

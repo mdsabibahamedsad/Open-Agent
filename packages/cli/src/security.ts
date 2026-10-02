@@ -23,31 +23,140 @@ interface Pattern {
 }
 
 const SECRET_PATTERNS: Pattern[] = [
-  { rule: "aws-access-key", severity: "critical", regex: /AKIA[0-9A-Z]{16}/, blocksPublish: true },
-  { rule: "private-key", severity: "critical", regex: /BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY/, blocksPublish: true },
-  { rule: "openai-key", severity: "critical", regex: /sk-[A-Za-z0-9]{20,}/, blocksPublish: true },
-  { rule: "github-token", severity: "critical", regex: /ghp_[A-Za-z0-9]{20,}/, blocksPublish: true },
-  { rule: "github-oauth", severity: "critical", regex: /gho_[A-Za-z0-9]{20,}/, blocksPublish: true },
-  { rule: "api-key-assignment", severity: "high", regex: /\bapi[_-]?key\s*[:=]\s*['"][^'"]{8,}['"]/i, blocksPublish: true },
-  { rule: "client-secret-assignment", severity: "high", regex: /\bclient[_-]?secret\s*[:=]\s*['"][^'"]{4,}['"]/i, blocksPublish: true },
-  { rule: "password-assignment", severity: "high", regex: /\bpassword\s*[:=]\s*['"][^'"]{4,}['"]/i, blocksPublish: true },
-  { rule: "bearer-token", severity: "high", regex: /Bearer\s+[A-Za-z0-9\-._~+/]{16,}={0,2}/, blocksPublish: true },
-  { rule: "postgres-dsn-with-password", severity: "high", regex: /postgres(?:ql)?:\/\/[^/\s:]+:[^/\s@]+@[^\s'"]+/, blocksPublish: true },
-  { rule: "generic-secret-assignment", severity: "medium", regex: /\bsecret\s*[:=]\s*['"][^'"]{4,}['"]/i, blocksPublish: false },
+  {
+    rule: "aws-access-key",
+    severity: "critical",
+    regex: /AKIA[0-9A-Z]{16}/,
+    blocksPublish: true,
+  },
+  {
+    rule: "private-key",
+    severity: "critical",
+    regex: /BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY/,
+    blocksPublish: true,
+  },
+  {
+    rule: "openai-key",
+    severity: "critical",
+    regex: /sk-[A-Za-z0-9]{20,}/,
+    blocksPublish: true,
+  },
+  {
+    rule: "github-token",
+    severity: "critical",
+    regex: /ghp_[A-Za-z0-9]{20,}/,
+    blocksPublish: true,
+  },
+  {
+    rule: "github-oauth",
+    severity: "critical",
+    regex: /gho_[A-Za-z0-9]{20,}/,
+    blocksPublish: true,
+  },
+  {
+    rule: "api-key-assignment",
+    severity: "high",
+    regex: /\bapi[_-]?key\s*[:=]\s*['"][^'"]{8,}['"]/i,
+    blocksPublish: true,
+  },
+  {
+    rule: "client-secret-assignment",
+    severity: "high",
+    regex: /\bclient[_-]?secret\s*[:=]\s*['"][^'"]{4,}['"]/i,
+    blocksPublish: true,
+  },
+  {
+    rule: "password-assignment",
+    severity: "high",
+    regex: /\bpassword\s*[:=]\s*['"][^'"]{4,}['"]/i,
+    blocksPublish: true,
+  },
+  {
+    rule: "bearer-token",
+    severity: "high",
+    regex: /Bearer\s+[A-Za-z0-9\-._~+/]{16,}={0,2}/,
+    blocksPublish: true,
+  },
+  {
+    rule: "postgres-dsn-with-password",
+    severity: "high",
+    regex: /postgres(?:ql)?:\/\/[^/\s:]+:[^/\s@]+@[^\s'"]+/,
+    blocksPublish: true,
+  },
+  {
+    rule: "generic-secret-assignment",
+    severity: "medium",
+    regex: /\bsecret\s*[:=]\s*['"][^'"]{4,}['"]/i,
+    blocksPublish: false,
+  },
 ];
 
 const DANGEROUS_PATTERNS: Pattern[] = [
-  { rule: "js-eval", severity: "high", regex: /\beval\s*\(/, blocksPublish: true },
-  { rule: "js-child-process", severity: "high", regex: /require\s*\(\s*['"]child_process['"]\s*\)|from\s+['"]child_process['"]/, blocksPublish: true },
-  { rule: "py-os-system", severity: "high", regex: /\bos\.system\s*\(/, blocksPublish: true },
-  { rule: "py-subprocess-shell", severity: "high", regex: /subprocess\.\w+\(.*shell\s*=\s*True/, blocksPublish: true },
-  { rule: "docker-sock", severity: "critical", regex: /docker\.sock/, blocksPublish: true },
-  { rule: "pickle-loads", severity: "high", regex: /pickle\.loads?\s*\(/, blocksPublish: true },
-  { rule: "preinstall-hook", severity: "high", regex: /"(preinstall|postinstall)"\s*:/, blocksPublish: true },
+  {
+    rule: "js-eval",
+    severity: "high",
+    regex: /\beval\s*\(/,
+    blocksPublish: true,
+  },
+  {
+    rule: "js-child-process",
+    severity: "high",
+    regex:
+      /require\s*\(\s*['"]child_process['"]\s*\)|from\s+['"]child_process['"]/,
+    blocksPublish: true,
+  },
+  {
+    rule: "py-os-system",
+    severity: "high",
+    regex: /\bos\.system\s*\(/,
+    blocksPublish: true,
+  },
+  {
+    rule: "py-subprocess-shell",
+    severity: "high",
+    regex: /subprocess\.\w+\(.*shell\s*=\s*True/,
+    blocksPublish: true,
+  },
+  {
+    rule: "docker-sock",
+    severity: "critical",
+    regex: /docker\.sock/,
+    blocksPublish: true,
+  },
+  {
+    rule: "pickle-loads",
+    severity: "high",
+    regex: /pickle\.loads?\s*\(/,
+    blocksPublish: true,
+  },
+  {
+    rule: "preinstall-hook",
+    severity: "high",
+    regex: /"(preinstall|postinstall)"\s*:/,
+    blocksPublish: true,
+  },
 ];
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".venv", "__pycache__", ".turbo", "coverage"]);
-const SKIP_EXTS = new Set([".oaext", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".tar", ".gz"]);
+const SKIP_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  ".venv",
+  "__pycache__",
+  ".turbo",
+  "coverage",
+]);
+const SKIP_EXTS = new Set([
+  ".oaext",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".pdf",
+  ".zip",
+  ".tar",
+  ".gz",
+]);
 const MAX_FILE_BYTES = 1024 * 1024;
 
 function redactSnippet(s: string): string {
@@ -104,7 +213,10 @@ export function isProbablyBinary(buf: Buffer): boolean {
   return false;
 }
 
-export function scanDirectory(root: string, opts?: { extraPatterns?: RegExp[] }): ScanResult {
+export function scanDirectory(
+  root: string,
+  opts?: { extraPatterns?: RegExp[] },
+): ScanResult {
   const findings: SecretFinding[] = [];
   const files = listFiles(root);
   const allPatterns = [...SECRET_PATTERNS, ...DANGEROUS_PATTERNS];
@@ -138,7 +250,13 @@ export function scanDirectory(root: string, opts?: { extraPatterns?: RegExp[] })
         for (const re of opts.extraPatterns) {
           re.lastIndex = 0;
           if (re.test(line)) {
-            findings.push({ file: path.relative(root, file) || file, line: i + 1, rule: "custom", severity: "medium", snippet: redactSnippet(line) });
+            findings.push({
+              file: path.relative(root, file) || file,
+              line: i + 1,
+              rule: "custom",
+              severity: "medium",
+              snippet: redactSnippet(line),
+            });
             break;
           }
         }
@@ -154,7 +272,8 @@ export function scanDirectory(root: string, opts?: { extraPatterns?: RegExp[] })
 }
 
 export function formatFindings(result: ScanResult): string {
-  if (result.findings.length === 0) return "No secrets or dangerous patterns detected.";
+  if (result.findings.length === 0)
+    return "No secrets or dangerous patterns detected.";
   return result.findings
     .map((f) => `${f.severity} ${f.file}:${f.line} [${f.rule}]: ${f.snippet}`)
     .join("\n");

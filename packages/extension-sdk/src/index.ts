@@ -6,16 +6,16 @@
 import type {
   ExtensionManifest,
   ExtensionPermission,
-} from '@openagent/sdk-types';
+} from "@openagent/sdk-types";
 
-export const EXTENSION_SDK_VERSION = '1.0.0';
-export const EXTENSION_API_VERSION = '1.x';
+export const EXTENSION_SDK_VERSION = "1.0.0";
+export const EXTENSION_API_VERSION = "1.x";
 
 export type {
   ExtensionManifest,
   ExtensionPermission,
   ExtensionType,
-} from '@openagent/sdk-types';
+} from "@openagent/sdk-types";
 
 // ------------------------------------------------------------------ agent --
 
@@ -33,7 +33,7 @@ export interface AgentLimits {
 }
 
 export interface AgentDefinition {
-  kind: 'agent';
+  kind: "agent";
   name: string;
   instructions: string;
   model?: AgentModelRef;
@@ -42,7 +42,11 @@ export interface AgentDefinition {
   memory?: { enabled: boolean; scope?: string };
   policies?: string[];
   permissions?: string[];
-  limits?: { maxSteps?: number; maxDurationSeconds?: number; budget?: Record<string, unknown> };
+  limits?: {
+    maxSteps?: number;
+    maxDurationSeconds?: number;
+    budget?: Record<string, unknown>;
+  };
   outputSchema?: Record<string, unknown>;
   evaluation?: Record<string, unknown>;
   lifecycle?: Record<string, unknown>;
@@ -52,27 +56,29 @@ export function defineAgent(def: {
   name: string;
   instructions: string;
   model?: AgentModelRef;
-  tools?: AgentDefinition['tools'];
+  tools?: AgentDefinition["tools"];
   skills?: string[];
-  memory?: AgentDefinition['memory'];
+  memory?: AgentDefinition["memory"];
   policies?: string[];
   permissions?: string[];
-  limits?: AgentDefinition['limits'];
+  limits?: AgentDefinition["limits"];
   outputSchema?: Record<string, unknown>;
   evaluation?: Record<string, unknown>;
   onStart?: unknown;
   onComplete?: unknown;
   onError?: unknown;
 }): AgentDefinition {
-  if (!def.name) throw new Error('defineAgent requires a name');
+  if (!def.name) throw new Error("defineAgent requires a name");
   if (!def.instructions || !def.instructions.trim()) {
-    throw new Error('defineAgent requires non-empty instructions');
+    throw new Error("defineAgent requires non-empty instructions");
   }
   const { onStart, onComplete, onError, ...rest } = def;
-  void onStart; void onComplete; void onError;
+  void onStart;
+  void onComplete;
+  void onError;
   return {
-    kind: 'agent',
-    model: { alias: 'smart' },
+    kind: "agent",
+    model: { alias: "smart" },
     memory: { enabled: false },
     ...rest,
     tools: def.tools ?? [],
@@ -94,12 +100,12 @@ export interface ToolContext {
 }
 
 export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
-  kind: 'tool';
+  kind: "tool";
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  riskLevel: "low" | "medium" | "high" | "critical";
   timeoutMs?: number;
   retries?: { maxAttempts?: number };
   credentials?: string[];
@@ -111,19 +117,20 @@ export function defineTool<TInput = unknown, TOutput = unknown>(def: {
   description: string;
   inputSchema: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
-  riskLevel?: ToolDefinition['riskLevel'];
+  riskLevel?: ToolDefinition["riskLevel"];
   timeoutMs?: number;
   retries?: { maxAttempts?: number };
   credentials?: string[];
   execute: (input: TInput, context: ToolContext) => Promise<TOutput>;
 }): ToolDefinition<TInput, TOutput> {
-  if (!def.name) throw new Error('defineTool requires a name');
-  if (!def.description) throw new Error('defineTool requires a description');
-  if (!def.inputSchema || typeof def.inputSchema !== 'object') {
-    throw new Error('defineTool requires an inputSchema object');
+  if (!def.name) throw new Error("defineTool requires a name");
+  if (!def.description) throw new Error("defineTool requires a description");
+  if (!def.inputSchema || typeof def.inputSchema !== "object") {
+    throw new Error("defineTool requires an inputSchema object");
   }
-  if (typeof def.execute !== 'function') throw new Error('defineTool requires an execute function');
-  return { kind: 'tool', riskLevel: 'low', ...def };
+  if (typeof def.execute !== "function")
+    throw new Error("defineTool requires an execute function");
+  return { kind: "tool", riskLevel: "low", ...def };
 }
 
 // ---------------------------------------------------------- workflow node --
@@ -143,7 +150,7 @@ export interface NodeContext {
 }
 
 export interface WorkflowNodeDefinition {
-  kind: 'workflow-node';
+  kind: "workflow-node";
   type: string;
   displayName?: string;
   description?: string;
@@ -166,9 +173,13 @@ export function defineWorkflowNode(def: {
   ui?: Record<string, unknown>;
   execute: (context: NodeContext) => Promise<Record<string, unknown>>;
 }): WorkflowNodeDefinition {
-  if (!def.type) throw new Error('defineWorkflowNode requires a type (e.g. "example.transform")');
-  if (typeof def.execute !== 'function') throw new Error('defineWorkflowNode requires an execute function');
-  return { kind: 'workflow-node', inputs: [], outputs: [], ...def };
+  if (!def.type)
+    throw new Error(
+      'defineWorkflowNode requires a type (e.g. "example.transform")',
+    );
+  if (typeof def.execute !== "function")
+    throw new Error("defineWorkflowNode requires an execute function");
+  return { kind: "workflow-node", inputs: [], outputs: [], ...def };
 }
 
 // --------------------------------------------------------------- connector --
@@ -178,14 +189,17 @@ export interface ConnectorActionDef {
   name: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
-  run: (input: unknown, ctx: { connectionId: string; signal?: AbortSignal }) => Promise<unknown>;
+  run: (
+    input: unknown,
+    ctx: { connectionId: string; signal?: AbortSignal },
+  ) => Promise<unknown>;
 }
 
 export interface ConnectorDefinition {
-  kind: 'connector';
+  kind: "connector";
   slug: string;
   displayName: string;
-  auth: { kind: 'oauth2' | 'api-key' | 'webhook' | 'none'; scopes?: string[] };
+  auth: { kind: "oauth2" | "api-key" | "webhook" | "none"; scopes?: string[] };
   actions: ConnectorActionDef[];
   triggers?: Array<{ id: string; eventTypes: string[] }>;
   healthCheck?: { action: string };
@@ -195,54 +209,63 @@ export interface ConnectorDefinition {
 export function defineConnector(def: {
   slug: string;
   displayName: string;
-  auth?: ConnectorDefinition['auth'];
+  auth?: ConnectorDefinition["auth"];
   actions: ConnectorActionDef[];
-  triggers?: ConnectorDefinition['triggers'];
-  healthCheck?: ConnectorDefinition['healthCheck'];
+  triggers?: ConnectorDefinition["triggers"];
+  healthCheck?: ConnectorDefinition["healthCheck"];
   rateLimits?: Record<string, unknown>;
 }): ConnectorDefinition {
-  if (!def.slug) throw new Error('defineConnector requires a slug');
+  if (!def.slug) throw new Error("defineConnector requires a slug");
   if (!def.actions || def.actions.length === 0) {
-    throw new Error('defineConnector requires at least one action');
+    throw new Error("defineConnector requires at least one action");
   }
-  return { kind: 'connector', auth: { kind: 'api-key' }, ...def };
+  return { kind: "connector", auth: { kind: "api-key" }, ...def };
 }
 
 // --------------------------------------------------------------------- MCP --
 
 export interface MCPServerDefinition {
-  kind: 'mcp-server';
+  kind: "mcp-server";
   name: string;
   version?: string;
-  transport?: 'stdio' | 'http' | 'websocket';
+  transport?: "stdio" | "http" | "websocket";
   tools: Array<{
     name: string;
     description: string;
     inputSchema?: Record<string, unknown>;
     run: (input: unknown) => Promise<unknown>;
   }>;
-  resources?: Array<{ uri: string; name: string; mimeType?: string; read: () => Promise<unknown> }>;
-  prompts?: Array<{ name: string; description?: string; render: (args: unknown) => Promise<string> }>;
+  resources?: Array<{
+    uri: string;
+    name: string;
+    mimeType?: string;
+    read: () => Promise<unknown>;
+  }>;
+  prompts?: Array<{
+    name: string;
+    description?: string;
+    render: (args: unknown) => Promise<string>;
+  }>;
   capabilities?: string[];
 }
 
 export function defineMCPServer(def: {
   name: string;
   version?: string;
-  transport?: MCPServerDefinition['transport'];
-  tools: MCPServerDefinition['tools'];
-  resources?: MCPServerDefinition['resources'];
-  prompts?: MCPServerDefinition['prompts'];
+  transport?: MCPServerDefinition["transport"];
+  tools: MCPServerDefinition["tools"];
+  resources?: MCPServerDefinition["resources"];
+  prompts?: MCPServerDefinition["prompts"];
   capabilities?: string[];
 }): MCPServerDefinition {
-  if (!def.name) throw new Error('defineMCPServer requires a name');
-  return { kind: 'mcp-server', transport: 'http', ...def };
+  if (!def.name) throw new Error("defineMCPServer requires a name");
+  return { kind: "mcp-server", transport: "http", ...def };
 }
 
 // ------------------------------------------------------------------- skill --
 
 export interface SkillDefinition {
-  kind: 'skill';
+  kind: "skill";
   name: string;
   description: string;
   instructions: string;
@@ -267,16 +290,18 @@ export function defineSkill(def: {
   examples?: Array<{ input: string; output: string }>;
   evaluation?: Record<string, unknown>;
 }): SkillDefinition {
-  if (!def.name) throw new Error('defineSkill requires a name');
-  if (!def.instructions) throw new Error('defineSkill requires instructions');
+  if (!def.name) throw new Error("defineSkill requires a name");
+  if (!def.instructions) throw new Error("defineSkill requires instructions");
   // Skills can never override system/security policy — enforced server-side,
   // but reject obviously abusive declarations early.
   for (const policy of def.policies ?? []) {
     if (/bypass|override.+(policy|rbac|approval|sandbox)/i.test(policy)) {
-      throw new Error(`skill policy '${policy}' attempts to override platform policy — refused`);
+      throw new Error(
+        `skill policy '${policy}' attempts to override platform policy — refused`,
+      );
     }
   }
-  return { kind: 'skill', ...def };
+  return { kind: "skill", ...def };
 }
 
 // --------------------------------------------------------------- evaluator --
@@ -297,47 +322,70 @@ export interface EvaluationVerdict {
 }
 
 export interface EvaluatorDefinition {
-  kind: 'evaluator';
+  kind: "evaluator";
   name: string;
   description?: string;
-  evaluate: (context: EvaluatorContext) => Promise<EvaluationVerdict> | EvaluationVerdict;
+  evaluate: (
+    context: EvaluatorContext,
+  ) => Promise<EvaluationVerdict> | EvaluationVerdict;
 }
 
 export function defineEvaluator(def: {
   name: string;
   description?: string;
-  evaluate: (context: EvaluatorContext) => Promise<EvaluationVerdict> | EvaluationVerdict;
+  evaluate: (
+    context: EvaluatorContext,
+  ) => Promise<EvaluationVerdict> | EvaluationVerdict;
 }): EvaluatorDefinition {
-  if (!def.name) throw new Error('defineEvaluator requires a name');
-  if (typeof def.evaluate !== 'function') throw new Error('defineEvaluator requires an evaluate function');
-  return { kind: 'evaluator', ...def };
+  if (!def.name) throw new Error("defineEvaluator requires a name");
+  if (typeof def.evaluate !== "function")
+    throw new Error("defineEvaluator requires an evaluate function");
+  return { kind: "evaluator", ...def };
 }
 
 // ---------------------------------------------------------------- manifest --
 
 export function defineManifest(manifest: ExtensionManifest): ExtensionManifest {
-  if (!manifest.name) throw new Error('manifest requires a name');
-  if (!manifest.type) throw new Error('manifest requires a type');
+  if (!manifest.name) throw new Error("manifest requires a name");
+  if (!manifest.type) throw new Error("manifest requires a type");
   return {
-    manifest_version: '1',
-    compatibility: { openagent: '>=1.0.0 <2.0.0', sdk: '>=1.0.0 <2.0.0', extension_api: '1.x' },
+    manifest_version: "1",
+    compatibility: {
+      openagent: ">=1.0.0 <2.0.0",
+      sdk: ">=1.0.0 <2.0.0",
+      extension_api: "1.x",
+    },
     ...manifest,
   };
 }
 
 /** Build an openagent.yaml-ready object from a definition + metadata. */
 export function manifestFor(
-  def: AgentDefinition | ToolDefinition | WorkflowNodeDefinition | ConnectorDefinition | MCPServerDefinition | SkillDefinition | EvaluatorDefinition,
+  def:
+    | AgentDefinition
+    | ToolDefinition
+    | WorkflowNodeDefinition
+    | ConnectorDefinition
+    | MCPServerDefinition
+    | SkillDefinition
+    | EvaluatorDefinition,
   meta: {
-    name: string; version: string; description: string;
+    name: string;
+    version: string;
+    description: string;
     author: { name: string; email?: string };
-    license?: string; permissions?: ExtensionPermission[];
+    license?: string;
+    permissions?: ExtensionPermission[];
   },
 ): ExtensionManifest {
-  const typeMap: Record<string, ExtensionManifest['type']> = {
-    agent: 'agent', tool: 'tool', 'workflow-node': 'workflow-node',
-    connector: 'connector', 'mcp-server': 'mcp-server',
-    skill: 'skill', evaluator: 'evaluator',
+  const typeMap: Record<string, ExtensionManifest["type"]> = {
+    agent: "agent",
+    tool: "tool",
+    "workflow-node": "workflow-node",
+    connector: "connector",
+    "mcp-server": "mcp-server",
+    skill: "skill",
+    evaluator: "evaluator",
   };
   const kind = (def as { kind: string }).kind;
   const type = typeMap[kind];
@@ -347,9 +395,9 @@ export function manifestFor(
     version: meta.version,
     description: meta.description,
     author: meta.author,
-    license: meta.license ?? 'MIT',
+    license: meta.license ?? "MIT",
     type,
-    runtime: { language: 'typescript', entrypoint: 'src/index.ts' },
-    permissions: meta.permissions ?? ['tool:execute'],
+    runtime: { language: "typescript", entrypoint: "src/index.ts" },
+    permissions: meta.permissions ?? ["tool:execute"],
   });
 }

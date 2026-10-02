@@ -1,25 +1,22 @@
-export type MCPTransportType = 'stdio' | 'streamable_http' | 'sse';
+export type MCPTransportType = "stdio" | "streamable_http" | "sse";
 
-export type MCPServerScope = 'PLATFORM' | 'ORGANIZATION' | 'TEAM' | 'USER';
+export type MCPServerScope = "PLATFORM" | "ORGANIZATION" | "TEAM" | "USER";
 
-export type MCPTrustLevel = 'CORE' | 'VERIFIED' | 'ORGANIZATION' | 'COMMUNITY' | 'UNTRUSTED';
+export type MCPTrustLevel =
+  "CORE" | "VERIFIED" | "ORGANIZATION" | "COMMUNITY" | "UNTRUSTED";
 
-export type MCPServerStatus = 
-  | 'DISCONNECTED'
-  | 'CONNECTING'
-  | 'CONNECTED'
-  | 'DEGRADED'
-  | 'ERROR'
-  | 'DISABLED';
+export type MCPServerStatus =
+  | "DISCONNECTED"
+  | "CONNECTING"
+  | "CONNECTED"
+  | "DEGRADED"
+  | "ERROR"
+  | "DISABLED";
 
-export type MCPConnectionState = 
-  | 'CONNECTING'
-  | 'CONNECTED'
-  | 'DEGRADED'
-  | 'DISCONNECTED'
-  | 'FAILED';
+export type MCPConnectionState =
+  "CONNECTING" | "CONNECTED" | "DEGRADED" | "DISCONNECTED" | "FAILED";
 
-export type MCPCapabilityType = 'tools' | 'resources' | 'prompts';
+export type MCPCapabilityType = "tools" | "resources" | "prompts";
 
 export interface MCPServerConfig {
   id: string;
@@ -113,7 +110,7 @@ export interface MCPToolAnnotations {
 }
 
 export interface MCPToolSchema {
-  type: 'object';
+  type: "object";
   properties: Record<string, MCPPropertySchema>;
   required?: string[];
   additionalProperties?: boolean | MCPPropertySchema;
@@ -168,12 +165,12 @@ export interface MCPPromptArgument {
 }
 
 export interface MCPPromptMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: MCPPromptContent;
 }
 
 export interface MCPPromptContent {
-  type: 'text';
+  type: "text";
   text: string;
 }
 
@@ -188,7 +185,7 @@ export interface MCPToolResult {
 }
 
 export interface MCPContent {
-  type: 'text' | 'image' | 'resource';
+  type: "text" | "image" | "resource";
   text?: string;
   data?: string;
   mimeType?: string;
@@ -303,7 +300,7 @@ export const MCP_ERROR_CODES: MCPErrorCodes = {
 
 export interface MCPHealthRecord {
   server_id: string;
-  status: 'HEALTHY' | 'DEGRADED' | 'UNAVAILABLE' | 'UNKNOWN' | 'DISABLED';
+  status: "HEALTHY" | "DEGRADED" | "UNAVAILABLE" | "UNKNOWN" | "DISABLED";
   last_check: Date;
   connection_success: number;
   connection_failure: number;
@@ -340,7 +337,7 @@ export interface MCPPolicy {
   allowed_domains: string[];
   blocked_domains: string[];
   allowed_trust_levels: MCPTrustLevel[];
-  max_risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  max_risk_level?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   approval_required: Record<string, boolean>;
   execution_limits: MCPExecutionLimits;
   is_active: boolean;

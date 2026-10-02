@@ -12,12 +12,16 @@ import {
   BrowserProfileType,
   BrowserSessionLease,
   BrowserStateFingerprint,
-} from '../core/types';
-import { browserProviderRegistry } from '../providers/types';
-import type { BrowserContext, BrowserPage, BrowserProvider } from '../providers/types';
-import { createChildLogger } from '@openagent/logger';
+} from "../core/types";
+import { browserProviderRegistry } from "../providers/types";
+import type {
+  BrowserContext,
+  BrowserPage,
+  BrowserProvider,
+} from "../providers/types";
+import { createChildLogger } from "@openagent/logger";
 
-const logger = createChildLogger({ module: 'browser:session-manager' });
+const logger = createChildLogger({ module: "browser:session-manager" });
 
 export interface SessionManagerConfig {
   defaultProvider: BrowserProviderType;
@@ -37,8 +41,8 @@ export interface SessionManagerConfig {
 }
 
 export const defaultSessionManagerConfig: SessionManagerConfig = {
-  defaultProvider: 'playwright',
-  defaultBrowserType: 'chromium',
+  defaultProvider: "playwright",
+  defaultBrowserType: "chromium",
   defaultHeadless: true,
   sessionTimeoutMs: 30 * 60 * 1000, // 30 minutes
   idleTimeoutMs: 5 * 60 * 1000, // 5 minutes
@@ -50,7 +54,7 @@ export const defaultSessionManagerConfig: SessionManagerConfig = {
   artifactRetentionMs: 24 * 60 * 60 * 1000, // 24 hours
   enableVideoRecording: false,
   enableHarRecording: false,
-  downloadPath: '/tmp/browser-downloads',
+  downloadPath: "/tmp/browser-downloads",
 };
 
 export interface BrowserSession {
@@ -77,7 +81,7 @@ export class BrowserSessionManager {
   async initialize(): Promise<void> {
     this.startCleanupTimer();
     this.startHeartbeatTimer();
-    logger.info('Browser session manager initialized', { config: this.config });
+    logger.info("Browser session manager initialized", { config: this.config });
   }
 
   async createSession(params: {
@@ -108,13 +112,20 @@ export class BrowserSessionManager {
     };
 
     if (this.config.enableVideoRecording) {
-      providerConfig.recordVideo = { dir: `${this.config.downloadPath}/videos` };
+      providerConfig.recordVideo = {
+        dir: `${this.config.downloadPath}/videos`,
+      };
     }
     if (this.config.enableHarRecording) {
-      providerConfig.recordHar = { path: `${this.config.downloadPath}/${sessionId}.har` };
+      providerConfig.recordHar = {
+        path: `${this.config.downloadPath}/${sessionId}.har`,
+      };
     }
 
-    const provider = await browserProviderRegistry.create(providerConfig.type, providerConfig);
+    const provider = await browserProviderRegistry.create(
+      providerConfig.type,
+      providerConfig,
+    );
 
     const sessionConfig: BrowserSessionConfig = {
       sessionId,
@@ -124,7 +135,7 @@ export class BrowserSessionManager {
       workflowExecutionId: params.workflowExecutionId,
       browserProfileId: params.browserProfileId,
       provider: providerConfig,
-      status: 'CREATED',
+      status: "CREATED",
       createdAt: now,
       lastActivityAt: now,
       expiresAt,
@@ -146,7 +157,10 @@ export class BrowserSessionManager {
     // Start the browser and create context
     await this.startSession(sessionId);
 
-    logger.info('Browser session created', { sessionId, organizationId: params.organizationId });
+    logger.info("Browser session created", {
+      sessionId,
+      organizationId: params.organizationId,
+    });
     return sessionConfig;
   }
 
@@ -154,8 +168,8 @@ export class BrowserSessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
-    session.config.status = 'STARTING';
-    
+    session.config.status = "STARTING";
+
     try {
       // Create browser context
       const contextConfig: BrowserContextConfig = {
@@ -171,18 +185,24 @@ export class BrowserSessionManager {
         offline: session.config.provider.offline,
       };
 
-      session.context = await session.provider.createContext(session.config, contextConfig);
-      
+      session.context = await session.provider.createContext(
+        session.config,
+        contextConfig,
+      );
+
       // Load profile storage state if available
       // TODO: Load from profile
-      
-      session.config.status = 'READY';
+
+      session.config.status = "READY";
       session.lastHeartbeat = new Date();
-      
-      logger.info('Browser session started', { sessionId });
+
+      logger.info("Browser session started", { sessionId });
     } catch (error) {
-      session.config.status = 'ERROR';
-      logger.error('Failed to start browser session', { sessionId, error: String(error) });
+      session.config.status = "ERROR";
+      logger.error("Failed to start browser session", {
+        sessionId,
+        error: String(error),
+      });
       throw error;
     }
   }
@@ -196,7 +216,10 @@ export class BrowserSessionManager {
     return this.sessions.get(sessionId) || null;
   }
 
-  async updateSessionStatus(sessionId: string, status: BrowserSessionStatus): Promise<void> {
+  async updateSessionStatus(
+    sessionId: string,
+    status: BrowserSessionStatus,
+  ): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (session) {
       session.config.status = status;
@@ -207,40 +230,44 @@ export class BrowserSessionManager {
   async pauseSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
-    
-    session.config.status = 'PAUSED';
+
+    session.config.status = "PAUSED";
     session.config.lastActivityAt = new Date();
-    logger.info('Browser session paused', { sessionId });
+    logger.info("Browser session paused", { sessionId });
   }
 
   async resumeSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
-    
-    if (session.config.status === 'PAUSED') {
-      session.config.status = 'READY';
+
+    if (session.config.status === "PAUSED") {
+      session.config.status = "READY";
       session.config.lastActivityAt = new Date();
       session.lastHeartbeat = new Date();
-      logger.info('Browser session resumed', { sessionId });
+      logger.info("Browser session resumed", { sessionId });
     }
   }
 
   async closeSession(sessionId: string, force = false): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      logger.warn('Attempted to close non-existent session', { sessionId });
+      logger.warn("Attempted to close non-existent session", { sessionId });
       return;
     }
 
-    session.config.status = 'CLOSING';
-    
+    session.config.status = "CLOSING";
+
     try {
       // Close all pages
       for (const page of session.pages.values()) {
         try {
           await page.close();
         } catch (error) {
-          logger.warn('Error closing page', { sessionId, pageId: page.pageId, error: String(error) });
+          logger.warn("Error closing page", {
+            sessionId,
+            pageId: page.pageId,
+            error: String(error),
+          });
         }
       }
       session.pages.clear();
@@ -254,11 +281,14 @@ export class BrowserSessionManager {
       // Close provider
       await session.provider.close();
 
-      session.config.status = 'CLOSED';
-      logger.info('Browser session closed', { sessionId });
+      session.config.status = "CLOSED";
+      logger.info("Browser session closed", { sessionId });
     } catch (error) {
-      session.config.status = 'ERROR';
-      logger.error('Error closing browser session', { sessionId, error: String(error) });
+      session.config.status = "ERROR";
+      logger.error("Error closing browser session", {
+        sessionId,
+        error: String(error),
+      });
       if (!force) throw error;
     } finally {
       this.sessions.delete(sessionId);
@@ -269,12 +299,16 @@ export class BrowserSessionManager {
     await this.closeSession(sessionId, true);
   }
 
-  async createPage(sessionId: string, options?: { url?: string; isPopup?: boolean; openerPageId?: string }): Promise<BrowserPage> {
+  async createPage(
+    sessionId: string,
+    options?: { url?: string; isPopup?: boolean; openerPageId?: string },
+  ): Promise<BrowserPage> {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
-    if (!session.context) throw new Error(`Session ${sessionId} has no context`);
+    if (!session.context)
+      throw new Error(`Session ${sessionId} has no context`);
 
-    session.config.status = 'BUSY';
+    session.config.status = "BUSY";
     session.config.lastActivityAt = new Date();
 
     const page = await session.context.newPage();
@@ -284,11 +318,14 @@ export class BrowserSessionManager {
       await page.goto(options.url);
     }
 
-    session.config.status = 'READY';
+    session.config.status = "READY";
     return page;
   }
 
-  async getPage(sessionId: string, pageId: string): Promise<BrowserPage | null> {
+  async getPage(
+    sessionId: string,
+    pageId: string,
+  ): Promise<BrowserPage | null> {
     const session = this.sessions.get(sessionId);
     return session?.pages.get(pageId) || null;
   }
@@ -309,14 +346,22 @@ export class BrowserSessionManager {
     return session ? Array.from(session.pages.values()) : [];
   }
 
-  async acquireLease(sessionId: string, holderId: string, holderType: 'agent' | 'workflow' | 'human', purpose: string, durationMs: number = 60000): Promise<BrowserSessionLease> {
+  async acquireLease(
+    sessionId: string,
+    holderId: string,
+    holderType: "agent" | "workflow" | "human",
+    purpose: string,
+    durationMs: number = 60000,
+  ): Promise<BrowserSessionLease> {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
     // Check for conflicting leases
     for (const lease of session.leases.values()) {
       if (lease.holderId !== holderId && lease.expiresAt > new Date()) {
-        throw new Error(`Session ${sessionId} already leased to ${lease.holderId}`);
+        throw new Error(
+          `Session ${sessionId} already leased to ${lease.holderId}`,
+        );
       }
     }
 
@@ -334,8 +379,13 @@ export class BrowserSessionManager {
 
     session.leases.set(leaseId, lease);
     session.config.lastActivityAt = new Date();
-    
-    logger.info('Session lease acquired', { sessionId, leaseId, holderId, holderType });
+
+    logger.info("Session lease acquired", {
+      sessionId,
+      leaseId,
+      holderId,
+      holderType,
+    });
     return lease;
   }
 
@@ -343,11 +393,15 @@ export class BrowserSessionManager {
     const session = this.sessions.get(sessionId);
     if (session) {
       session.leases.delete(leaseId);
-      logger.info('Session lease released', { sessionId, leaseId });
+      logger.info("Session lease released", { sessionId, leaseId });
     }
   }
 
-  async renewLease(sessionId: string, leaseId: string, durationMs: number = 60000): Promise<void> {
+  async renewLease(
+    sessionId: string,
+    leaseId: string,
+    durationMs: number = 60000,
+  ): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
@@ -378,33 +432,45 @@ export class BrowserSessionManager {
     }
   }
 
-  async getSessionFingerprint(sessionId: string): Promise<BrowserStateFingerprint | null> {
+  async getSessionFingerprint(
+    sessionId: string,
+  ): Promise<BrowserStateFingerprint | null> {
     const session = this.sessions.get(sessionId);
     return session?.stateFingerprint || null;
   }
 
-  async updateSessionFingerprint(sessionId: string, fingerprint: BrowserStateFingerprint): Promise<void> {
+  async updateSessionFingerprint(
+    sessionId: string,
+    fingerprint: BrowserStateFingerprint,
+  ): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (session) {
       session.stateFingerprint = fingerprint;
     }
   }
 
-  async listSessions(filters?: { organizationId?: string; userId?: string; agentId?: string; status?: BrowserSessionStatus }): Promise<BrowserSessionConfig[]> {
-    let sessions = Array.from(this.sessions.values()).map(s => s.config);
+  async listSessions(filters?: {
+    organizationId?: string;
+    userId?: string;
+    agentId?: string;
+    status?: BrowserSessionStatus;
+  }): Promise<BrowserSessionConfig[]> {
+    let sessions = Array.from(this.sessions.values()).map((s) => s.config);
 
     if (filters) {
       if (filters.organizationId) {
-        sessions = sessions.filter(s => s.organizationId === filters.organizationId);
+        sessions = sessions.filter(
+          (s) => s.organizationId === filters.organizationId,
+        );
       }
       if (filters.userId) {
-        sessions = sessions.filter(s => s.userId === filters.userId);
+        sessions = sessions.filter((s) => s.userId === filters.userId);
       }
       if (filters.agentId) {
-        sessions = sessions.filter(s => s.agentId === filters.agentId);
+        sessions = sessions.filter((s) => s.agentId === filters.agentId);
       }
       if (filters.status) {
-        sessions = sessions.filter(s => s.status === filters.status);
+        sessions = sessions.filter((s) => s.status === filters.status);
       }
     }
 
@@ -413,26 +479,39 @@ export class BrowserSessionManager {
 
   async getSessionCount(organizationId?: string): Promise<number> {
     if (organizationId) {
-      return Array.from(this.sessions.values()).filter(s => s.config.organizationId === organizationId).length;
+      return Array.from(this.sessions.values()).filter(
+        (s) => s.config.organizationId === organizationId,
+      ).length;
     }
     return this.sessions.size;
   }
 
-  private async checkLimits(organizationId: string, userId?: string): Promise<void> {
+  private async checkLimits(
+    organizationId: string,
+    userId?: string,
+  ): Promise<void> {
     const orgCount = await this.getSessionCount(organizationId);
     if (orgCount >= this.config.maxSessionsPerOrganization) {
-      throw new Error(`Organization session limit exceeded: ${this.config.maxSessionsPerOrganization}`);
+      throw new Error(
+        `Organization session limit exceeded: ${this.config.maxSessionsPerOrganization}`,
+      );
     }
 
     if (userId) {
-      const userCount = Array.from(this.sessions.values()).filter(s => s.config.userId === userId).length;
+      const userCount = Array.from(this.sessions.values()).filter(
+        (s) => s.config.userId === userId,
+      ).length;
       if (userCount >= this.config.maxSessionsPerUser) {
-        throw new Error(`User session limit exceeded: ${this.config.maxSessionsPerUser}`);
+        throw new Error(
+          `User session limit exceeded: ${this.config.maxSessionsPerUser}`,
+        );
       }
     }
 
     if (this.sessions.size >= this.config.maxConcurrentSessions) {
-      throw new Error(`Global session limit exceeded: ${this.config.maxConcurrentSessions}`);
+      throw new Error(
+        `Global session limit exceeded: ${this.config.maxConcurrentSessions}`,
+      );
     }
   }
 
@@ -454,8 +533,10 @@ export class BrowserSessionManager {
 
     for (const [sessionId, session] of this.sessions.entries()) {
       const expired = session.config.expiresAt < now;
-      const idle = session.config.lastActivityAt.getTime() + this.config.idleTimeoutMs < now.getTime();
-      
+      const idle =
+        session.config.lastActivityAt.getTime() + this.config.idleTimeoutMs <
+        now.getTime();
+
       if (expired || idle) {
         expiredSessions.push(sessionId);
       }
@@ -464,9 +545,14 @@ export class BrowserSessionManager {
     for (const sessionId of expiredSessions) {
       const session = this.sessions.get(sessionId);
       if (session) {
-        session.config.status = expiredSessions.includes(sessionId) ? 'EXPIRED' : 'CLOSED';
+        session.config.status = expiredSessions.includes(sessionId)
+          ? "EXPIRED"
+          : "CLOSED";
         await this.closeSession(sessionId, true);
-        logger.info('Session cleaned up', { sessionId, reason: expiredSessions.includes(sessionId) ? 'expired' : 'idle' });
+        logger.info("Session cleaned up", {
+          sessionId,
+          reason: expiredSessions.includes(sessionId) ? "expired" : "idle",
+        });
       }
     }
   }
@@ -477,9 +563,14 @@ export class BrowserSessionManager {
 
     for (const [sessionId, session] of this.sessions.entries()) {
       if (now.getTime() - session.lastHeartbeat.getTime() > staleThreshold) {
-        if (session.config.status === 'READY' || session.config.status === 'BUSY') {
-          logger.warn('Session heartbeat stale, marking as error', { sessionId });
-          session.config.status = 'ERROR';
+        if (
+          session.config.status === "READY" ||
+          session.config.status === "BUSY"
+        ) {
+          logger.warn("Session heartbeat stale, marking as error", {
+            sessionId,
+          });
+          session.config.status = "ERROR";
         }
       }
     }
@@ -490,9 +581,9 @@ export class BrowserSessionManager {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
 
     const sessionIds = Array.from(this.sessions.keys());
-    await Promise.all(sessionIds.map(id => this.closeSession(id, true)));
-    
-    logger.info('Browser session manager shut down');
+    await Promise.all(sessionIds.map((id) => this.closeSession(id, true)));
+
+    logger.info("Browser session manager shut down");
   }
 }
 

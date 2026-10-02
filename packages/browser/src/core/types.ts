@@ -1,83 +1,92 @@
-import { JSONSchema } from '@openagent/types';
+import { JSONSchema } from "@openagent/types";
 
-export type BrowserProviderType = 'playwright' | 'browserless' | 'remote-chromium' | 'cloud-browser' | 'custom';
+export type BrowserProviderType =
+  "playwright" | "browserless" | "remote-chromium" | "cloud-browser" | "custom";
 
-export type BrowserType = 'chromium' | 'firefox' | 'webkit';
+export type BrowserType = "chromium" | "firefox" | "webkit";
 
-export type BrowserSessionStatus = 
-  | 'CREATED'
-  | 'STARTING'
-  | 'READY'
-  | 'BUSY'
-  | 'WAITING'
-  | 'PAUSED'
-  | 'ERROR'
-  | 'CLOSING'
-  | 'CLOSED'
-  | 'EXPIRED';
+export type BrowserSessionStatus =
+  | "CREATED"
+  | "STARTING"
+  | "READY"
+  | "BUSY"
+  | "WAITING"
+  | "PAUSED"
+  | "ERROR"
+  | "CLOSING"
+  | "CLOSED"
+  | "EXPIRED";
 
-export type BrowserProfileType = 'EPHEMERAL' | 'PERSISTENT' | 'SHARED' | 'ORGANIZATION' | 'USER';
+export type BrowserProfileType =
+  "EPHEMERAL" | "PERSISTENT" | "SHARED" | "ORGANIZATION" | "USER";
 
-export type BrowserPageStatus = 'CREATED' | 'LOADING' | 'READY' | 'CLOSED' | 'ERROR';
+export type BrowserPageStatus =
+  "CREATED" | "LOADING" | "READY" | "CLOSED" | "ERROR";
 
-export type BrowserActionType = 
-  | 'NAVIGATE'
-  | 'CLICK'
-  | 'DOUBLE_CLICK'
-  | 'TYPE'
-  | 'FILL'
-  | 'SELECT'
-  | 'CHECK'
-  | 'UNCHECK'
-  | 'HOVER'
-  | 'SCROLL'
-  | 'PRESS_KEY'
-  | 'DRAG'
-  | 'DROP'
-  | 'WAIT'
-  | 'SCREENSHOT'
-  | 'EXTRACT'
-  | 'UPLOAD'
-  | 'DOWNLOAD'
-  | 'SWITCH_TAB'
-  | 'GO_BACK'
-  | 'GO_FORWARD'
-  | 'RELOAD'
-  | 'FOCUS'
-  | 'EVALUATE'
-  | 'SET_VIEWPORT'
-  | 'SET_COOKIE'
-  | 'CLEAR_COOKIES'
-  | 'GET_COOKIES'
-  | 'AUTHENTICATE'
-  | 'HANDLE_DIALOG'
-  | 'WAIT_FOR_SELECTOR'
-  | 'WAIT_FOR_NAVIGATION'
-  | 'WAIT_FOR_FUNCTION'
-  | 'SELECT_OPTION'
-  | 'SET_INPUT_FILES'
-  | 'CHECKBOX'
-  | 'RADIO';
+export type BrowserActionType =
+  | "NAVIGATE"
+  | "CLICK"
+  | "DOUBLE_CLICK"
+  | "TYPE"
+  | "FILL"
+  | "SELECT"
+  | "CHECK"
+  | "UNCHECK"
+  | "HOVER"
+  | "SCROLL"
+  | "PRESS_KEY"
+  | "DRAG"
+  | "DROP"
+  | "WAIT"
+  | "SCREENSHOT"
+  | "EXTRACT"
+  | "UPLOAD"
+  | "DOWNLOAD"
+  | "SWITCH_TAB"
+  | "GO_BACK"
+  | "GO_FORWARD"
+  | "RELOAD"
+  | "FOCUS"
+  | "EVALUATE"
+  | "SET_VIEWPORT"
+  | "SET_COOKIE"
+  | "CLEAR_COOKIES"
+  | "GET_COOKIES"
+  | "AUTHENTICATE"
+  | "HANDLE_DIALOG"
+  | "WAIT_FOR_SELECTOR"
+  | "WAIT_FOR_NAVIGATION"
+  | "WAIT_FOR_FUNCTION"
+  | "SELECT_OPTION"
+  | "SET_INPUT_FILES"
+  | "CHECKBOX"
+  | "RADIO";
 
-export type BrowserActionRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type BrowserActionRiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
-export type BrowserTaskStatus = 
-  | 'QUEUED'
-  | 'STARTING'
-  | 'RUNNING'
-  | 'WAITING'
-  | 'WAITING_FOR_HUMAN'
-  | 'PAUSED'
-  | 'SUCCEEDED'
-  | 'FAILED'
-  | 'CANCELLED'
-  | 'TIMED_OUT';
+export type BrowserTaskStatus =
+  | "QUEUED"
+  | "STARTING"
+  | "RUNNING"
+  | "WAITING"
+  | "WAITING_FOR_HUMAN"
+  | "PAUSED"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED"
+  | "TIMED_OUT";
 
-export type BrowserDomainPolicyAction = 'ALLOW' | 'DENY' | 'CONFIRM';
+export type BrowserDomainPolicyAction = "ALLOW" | "DENY" | "CONFIRM";
 
-export type BrowserObservationStrategy = 'minimal' | 'standard' | 'detailed' | 'visual' | 'custom';
+export type BrowserObservationStrategy =
+  "minimal" | "standard" | "detailed" | "visual" | "custom";
 
-export type BrowserChallengeType = 'CAPTCHA' | 'MFA_REQUIRED' | 'LOGIN_REQUIRED' | 'SECURITY_CHECK' | 'BOT_CHALLENGE';
+export type BrowserChallengeType =
+  | "CAPTCHA"
+  | "MFA_REQUIRED"
+  | "LOGIN_REQUIRED"
+  | "SECURITY_CHECK"
+  | "BOT_CHALLENGE";
 
 export interface BrowserProviderConfig {
   type: BrowserProviderType;
@@ -184,7 +193,7 @@ export interface Cookie {
   expires?: number;
   httpOnly?: boolean;
   secure?: boolean;
-  sameSite?: 'Strict' | 'Lax' | 'None';
+  sameSite?: "Strict" | "Lax" | "None";
 }
 
 export interface BrowserProfile {
@@ -218,7 +227,7 @@ export interface BrowserProfilePolicy {
 
 export interface BrowserCredentialRef {
   id: string;
-  type: 'username_password' | 'oauth' | 'api_key' | 'cookie' | 'custom';
+  type: "username_password" | "oauth" | "api_key" | "cookie" | "custom";
   reference: string;
   domain?: string;
 }
@@ -231,7 +240,13 @@ export interface BrowserAction {
   type: BrowserActionType;
   input: Record<string, unknown>;
   riskLevel: BrowserActionRiskLevel;
-  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'WAITING_APPROVAL';
+  status:
+    | "PENDING"
+    | "RUNNING"
+    | "SUCCEEDED"
+    | "FAILED"
+    | "CANCELLED"
+    | "WAITING_APPROVAL";
   result?: BrowserActionResult;
   error?: BrowserActionError;
   startedAt?: Date;
@@ -330,7 +345,14 @@ export interface BrowserTaskRiskPolicy {
 
 export interface BrowserArtifactRef {
   artifactId: string;
-  type: 'screenshot' | 'download' | 'extraction' | 'html' | 'har' | 'video' | 'trace';
+  type:
+    | "screenshot"
+    | "download"
+    | "extraction"
+    | "html"
+    | "har"
+    | "video"
+    | "trace";
   name: string;
   size: number;
   mimeType: string;
@@ -345,7 +367,14 @@ export interface BrowserArtifact {
   organizationId: string;
   taskId?: string;
   sessionId?: string;
-  type: 'screenshot' | 'download' | 'extraction' | 'html' | 'har' | 'video' | 'trace';
+  type:
+    | "screenshot"
+    | "download"
+    | "extraction"
+    | "html"
+    | "har"
+    | "video"
+    | "trace";
   name: string;
   size: number;
   mimeType: string;
@@ -368,33 +397,33 @@ export interface BrowserEvent {
 }
 
 export type BrowserEventType =
-  | 'browser.session.created'
-  | 'browser.session.ready'
-  | 'browser.session.closed'
-  | 'browser.session.crashed'
-  | 'browser.session.expired'
-  | 'browser.navigation.started'
-  | 'browser.navigation.completed'
-  | 'browser.navigation.failed'
-  | 'browser.action.started'
-  | 'browser.action.completed'
-  | 'browser.action.failed'
-  | 'browser.page.created'
-  | 'browser.page.closed'
-  | 'browser.page.crashed'
-  | 'browser.download.started'
-  | 'browser.download.completed'
-  | 'browser.download.failed'
-  | 'browser.upload.started'
-  | 'browser.upload.completed'
-  | 'browser.upload.failed'
-  | 'browser.challenge.detected'
-  | 'browser.human_required'
-  | 'browser.profile.accessed'
-  | 'browser.credential.used'
-  | 'browser.policy.denied'
-  | 'browser.artifact.created'
-  | 'browser.state.changed';
+  | "browser.session.created"
+  | "browser.session.ready"
+  | "browser.session.closed"
+  | "browser.session.crashed"
+  | "browser.session.expired"
+  | "browser.navigation.started"
+  | "browser.navigation.completed"
+  | "browser.navigation.failed"
+  | "browser.action.started"
+  | "browser.action.completed"
+  | "browser.action.failed"
+  | "browser.page.created"
+  | "browser.page.closed"
+  | "browser.page.crashed"
+  | "browser.download.started"
+  | "browser.download.completed"
+  | "browser.download.failed"
+  | "browser.upload.started"
+  | "browser.upload.completed"
+  | "browser.upload.failed"
+  | "browser.challenge.detected"
+  | "browser.human_required"
+  | "browser.profile.accessed"
+  | "browser.credential.used"
+  | "browser.policy.denied"
+  | "browser.artifact.created"
+  | "browser.state.changed";
 
 export interface BrowserMetrics {
   sessionsTotal: number;
@@ -429,13 +458,13 @@ export interface BrowserDomainPolicy {
 }
 
 export interface BrowserNavigationOptions {
-  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle' | 'commit';
+  waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit";
   timeout?: number;
   referer?: string;
 }
 
 export interface BrowserClickOptions {
-  button?: 'left' | 'right' | 'middle';
+  button?: "left" | "right" | "middle";
   clickCount?: number;
   delay?: number;
   modifiers?: string[];
@@ -453,23 +482,23 @@ export interface BrowserTypeOptions {
 export interface BrowserScrollOptions {
   x?: number;
   y?: number;
-  behavior?: 'auto' | 'smooth' | 'instant';
+  behavior?: "auto" | "smooth" | "instant";
 }
 
 export interface BrowserWaitOptions {
-  state?: 'attached' | 'detached' | 'visible' | 'hidden';
+  state?: "attached" | "detached" | "visible" | "hidden";
   timeout?: number;
 }
 
 export interface BrowserScreenshotOptions {
   fullPage?: boolean;
-  format?: 'png' | 'jpeg';
+  format?: "png" | "jpeg";
   quality?: number;
   clip?: BoundingBox;
   omitBackground?: boolean;
-  animations?: 'allow' | 'disabled';
-  caret?: 'hide' | 'initial';
-  scale?: 'css' | 'device';
+  animations?: "allow" | "disabled";
+  caret?: "hide" | "initial";
+  scale?: "css" | "device";
   timeout?: number;
 }
 
@@ -516,7 +545,7 @@ export interface BrowserSessionLease {
   leaseId: string;
   sessionId: string;
   holderId: string;
-  holderType: 'agent' | 'workflow' | 'human';
+  holderType: "agent" | "workflow" | "human";
   acquiredAt: Date;
   expiresAt: Date;
   purpose: string;

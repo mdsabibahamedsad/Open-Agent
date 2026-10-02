@@ -8,10 +8,10 @@ import {
   BrowserObservation,
   BrowserTaskRiskPolicy,
   BrowserStateFingerprint,
-} from '../core/types';
-import { OpenAgentLogger, createChildLogger } from '@openagent/logger';
+} from "../core/types";
+import { OpenAgentLogger, createChildLogger } from "@openagent/logger";
 
-const logger = createChildLogger({ module: 'browser:tasks' });
+const logger = createChildLogger({ module: "browser:tasks" });
 
 export interface TaskManagerConfig {
   maxSteps: number;
@@ -76,15 +76,15 @@ export class BrowserTaskManager {
       agentId: params.agentId,
       workflowExecutionId: params.workflowExecutionId,
       browserSessionId: params.browserSessionId,
-      status: 'QUEUED',
+      status: "QUEUED",
       objective: params.objective,
       currentStep: 0,
       maxSteps: params.maxSteps || this.config.maxSteps,
       timeout: params.timeout || this.config.defaultTimeout,
       riskPolicy: {
-        allowedRiskLevels: ['LOW', 'MEDIUM'],
-        maxRiskLevel: 'MEDIUM',
-        requireApprovalFor: ['HIGH', 'CRITICAL'],
+        allowedRiskLevels: ["LOW", "MEDIUM"],
+        maxRiskLevel: "MEDIUM",
+        requireApprovalFor: ["HIGH", "CRITICAL"],
         blockedActions: [],
         ...params.riskPolicy,
       },
@@ -101,7 +101,10 @@ export class BrowserTaskManager {
     // Start persistence timer
     this.startPersistenceTimer(taskId);
 
-    logger.info('Browser task created', { taskId, organizationId: params.organizationId });
+    logger.info("Browser task created", {
+      taskId,
+      organizationId: params.organizationId,
+    });
     return task;
   }
 
@@ -109,30 +112,43 @@ export class BrowserTaskManager {
     return this.tasks.get(taskId) || null;
   }
 
-  async updateTaskStatus(taskId: string, status: BrowserTaskStatus): Promise<void> {
+  async updateTaskStatus(
+    taskId: string,
+    status: BrowserTaskStatus,
+  ): Promise<void> {
     const task = this.tasks.get(taskId);
     if (task) {
       task.status = status;
       task.updatedAt = new Date();
-      if (status === 'SUCCEEDED' || status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT') {
+      if (
+        status === "SUCCEEDED" ||
+        status === "FAILED" ||
+        status === "CANCELLED" ||
+        status === "TIMED_OUT"
+      ) {
         task.completedAt = new Date();
         this.stopPersistenceTimer(taskId);
       }
     }
   }
 
-  async updateTaskProgress(taskId: string, updates: {
-    currentUrl?: string;
-    currentPageId?: string;
-    currentStep?: number;
-    metadata?: Record<string, unknown>;
-  }): Promise<void> {
+  async updateTaskProgress(
+    taskId: string,
+    updates: {
+      currentUrl?: string;
+      currentPageId?: string;
+      currentStep?: number;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<void> {
     const task = this.tasks.get(taskId);
     if (task) {
       if (updates.currentUrl) task.currentUrl = updates.currentUrl;
       if (updates.currentPageId) task.currentPageId = updates.currentPageId;
-      if (updates.currentStep !== undefined) task.currentStep = updates.currentStep;
-      if (updates.metadata) task.metadata = { ...task.metadata, ...updates.metadata };
+      if (updates.currentStep !== undefined)
+        task.currentStep = updates.currentStep;
+      if (updates.metadata)
+        task.metadata = { ...task.metadata, ...updates.metadata };
       task.updatedAt = new Date();
     }
   }
@@ -143,26 +159,37 @@ export class BrowserTaskManager {
     this.taskActions.set(taskId, actions);
   }
 
-  async updateActionResult(taskId: string, actionId: string, result: BrowserActionResult): Promise<void> {
+  async updateActionResult(
+    taskId: string,
+    actionId: string,
+    result: BrowserActionResult,
+  ): Promise<void> {
     const actions = this.taskActions.get(taskId) || [];
-    const action = actions.find(a => a.id === actionId);
+    const action = actions.find((a) => a.id === actionId);
     if (action) {
       action.result = result;
-      action.status = result.success ? 'SUCCEEDED' : 'FAILED';
+      action.status = result.success ? "SUCCEEDED" : "FAILED";
       action.completedAt = new Date();
       if (action.startedAt) {
-        action.durationMs = action.completedAt.getTime() - action.startedAt.getTime();
+        action.durationMs =
+          action.completedAt.getTime() - action.startedAt.getTime();
       }
     }
   }
 
-  async addObservation(taskId: string, observation: BrowserObservation): Promise<void> {
+  async addObservation(
+    taskId: string,
+    observation: BrowserObservation,
+  ): Promise<void> {
     const observations = this.taskObservations.get(taskId) || [];
     observations.push(observation);
     this.taskObservations.set(taskId, observations);
   }
 
-  async addFingerprint(taskId: string, fingerprint: BrowserStateFingerprint): Promise<void> {
+  async addFingerprint(
+    taskId: string,
+    fingerprint: BrowserStateFingerprint,
+  ): Promise<void> {
     const fingerprints = this.taskFingerprints.get(taskId) || [];
     fingerprints.push(fingerprint);
     this.taskFingerprints.set(taskId, fingerprints);
@@ -171,7 +198,10 @@ export class BrowserTaskManager {
     if (this.config.enableLoopDetection) {
       const loopDetected = this.loopDetector.check(fingerprints);
       if (loopDetected) {
-        logger.warn('Loop detected in browser task', { taskId, loopType: loopDetected.type });
+        logger.warn("Loop detected in browser task", {
+          taskId,
+          loopType: loopDetected.type,
+        });
         // Could trigger replanning or human intervention
       }
     }
@@ -195,33 +225,37 @@ export class BrowserTaskManager {
     const state = await this.getTaskState(taskId);
     if (state) {
       // In a real implementation, this would save to database
-      logger.debug('Task state persisted', { taskId, actions: state.actions.length, observations: state.observations.length });
+      logger.debug("Task state persisted", {
+        taskId,
+        actions: state.actions.length,
+        observations: state.observations.length,
+      });
     }
   }
 
   async recoverTask(taskId: string): Promise<PersistedTaskState | null> {
     // In a real implementation, this would load from database
-    logger.info('Attempting task recovery', { taskId });
+    logger.info("Attempting task recovery", { taskId });
     return this.getTaskState(taskId);
   }
 
   async cancelTask(taskId: string): Promise<void> {
-    await this.updateTaskStatus(taskId, 'CANCELLED');
+    await this.updateTaskStatus(taskId, "CANCELLED");
     this.stopPersistenceTimer(taskId);
-    logger.info('Browser task cancelled', { taskId });
+    logger.info("Browser task cancelled", { taskId });
   }
 
   async pauseTask(taskId: string): Promise<void> {
-    await this.updateTaskStatus(taskId, 'PAUSED');
-    logger.info('Browser task paused', { taskId });
+    await this.updateTaskStatus(taskId, "PAUSED");
+    logger.info("Browser task paused", { taskId });
   }
 
   async resumeTask(taskId: string): Promise<void> {
     const task = this.tasks.get(taskId);
-    if (task && task.status === 'PAUSED') {
-      task.status = 'RUNNING';
+    if (task && task.status === "PAUSED") {
+      task.status = "RUNNING";
       task.updatedAt = new Date();
-      logger.info('Browser task resumed', { taskId });
+      logger.info("Browser task resumed", { taskId });
     }
   }
 
@@ -235,11 +269,22 @@ export class BrowserTaskManager {
     let tasks = Array.from(this.tasks.values());
 
     if (filters) {
-      if (filters.organizationId) tasks = tasks.filter(t => t.organizationId === filters.organizationId);
-      if (filters.agentId) tasks = tasks.filter(t => t.agentId === filters.agentId);
-      if (filters.workflowExecutionId) tasks = tasks.filter(t => t.workflowExecutionId === filters.workflowExecutionId);
-      if (filters.browserSessionId) tasks = tasks.filter(t => t.browserSessionId === filters.browserSessionId);
-      if (filters.status) tasks = tasks.filter(t => t.status === filters.status);
+      if (filters.organizationId)
+        tasks = tasks.filter(
+          (t) => t.organizationId === filters.organizationId,
+        );
+      if (filters.agentId)
+        tasks = tasks.filter((t) => t.agentId === filters.agentId);
+      if (filters.workflowExecutionId)
+        tasks = tasks.filter(
+          (t) => t.workflowExecutionId === filters.workflowExecutionId,
+        );
+      if (filters.browserSessionId)
+        tasks = tasks.filter(
+          (t) => t.browserSessionId === filters.browserSessionId,
+        );
+      if (filters.status)
+        tasks = tasks.filter((t) => t.status === filters.status);
     }
 
     return tasks;
@@ -279,11 +324,13 @@ export class LoopDetector {
     this.threshold = threshold;
   }
 
-  check(fingerprints: BrowserStateFingerprint[]): { type: string; details: string } | null {
+  check(
+    fingerprints: BrowserStateFingerprint[],
+  ): { type: string; details: string } | null {
     if (fingerprints.length < this.threshold) return null;
 
     const recent = fingerprints.slice(-this.threshold * 2);
-    
+
     // Check URL repetition
     const urlCounts = new Map<string, number>();
     for (const fp of recent) {
@@ -291,7 +338,10 @@ export class LoopDetector {
     }
     for (const [url, count] of urlCounts.entries()) {
       if (count >= this.threshold) {
-        return { type: 'url_repetition', details: `URL repeated ${count} times: ${url}` };
+        return {
+          type: "url_repetition",
+          details: `URL repeated ${count} times: ${url}`,
+        };
       }
     }
 
@@ -302,12 +352,15 @@ export class LoopDetector {
     }
     for (const [hash, count] of domCounts.entries()) {
       if (count >= this.threshold) {
-        return { type: 'dom_repetition', details: `DOM state repeated ${count} times` };
+        return {
+          type: "dom_repetition",
+          details: `DOM state repeated ${count} times`,
+        };
       }
     }
 
     // Check action patterns (would need action history)
-    
+
     return null;
   }
 
@@ -338,7 +391,10 @@ export class TaskPlanner {
     this.maxSteps = maxSteps;
   }
 
-  async createPlan(objective: string, context: { url?: string; observations?: BrowserObservation[] }): Promise<Plan> {
+  async createPlan(
+    objective: string,
+    context: { url?: string; observations?: BrowserObservation[] },
+  ): Promise<Plan> {
     // This would use an LLM to create a plan
     // For now, return a basic plan structure
     return {
@@ -346,22 +402,26 @@ export class TaskPlanner {
       steps: [
         {
           step: 1,
-          description: 'Navigate to target website',
-          action: 'NAVIGATE',
-          expectedOutcome: 'Page loaded successfully',
+          description: "Navigate to target website",
+          action: "NAVIGATE",
+          expectedOutcome: "Page loaded successfully",
         },
         {
           step: 2,
-          description: 'Inspect page for interactive elements',
-          action: 'EXTRACT',
-          expectedOutcome: 'List of actionable elements',
+          description: "Inspect page for interactive elements",
+          action: "EXTRACT",
+          expectedOutcome: "List of actionable elements",
         },
       ],
       estimatedSteps: 2,
     };
   }
 
-  async updatePlan(plan: Plan, observation: BrowserObservation, previousAction?: BrowserAction): Promise<Plan> {
+  async updatePlan(
+    plan: Plan,
+    observation: BrowserObservation,
+    previousAction?: BrowserAction,
+  ): Promise<Plan> {
     // Replan based on observation
     return plan;
   }
