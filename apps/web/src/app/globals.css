@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * OpenAgent Design Tokens
+ * Semantic tokens only — no hard-coded colors in components.
+ */
+
+@layer base {
+  :root {
+    --background: 0 0% 99%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 42%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --border: 214.3 31.8% 89%;
+    --input: 214.3 31.8% 89%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.625rem;
+    --sidebar: 0 0% 98%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --surface: 0 0% 100%;
+    --surface-elevated: 0 0% 100%;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --font-sans: var(--font-sans);
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --z-dropdown: 50;
+    --z-modal: 60;
+    --z-drawer: 55;
+    --z-toast: 80;
+    --z-command: 70;
+    --transition-fast: 120ms;
+    --transition-normal: 200ms;
+  }
+
+  .dark {
+    --background: 222.2 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 47% 8.5%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 16%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 15%;
+    --muted-foreground: 215 20.2% 68%;
+    --accent: 217.2 32.6% 16%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142.1 70% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 0%;
+    --info: 199 89% 55%;
+    --info-foreground: 0 0% 0%;
+    --border: 217.2 32.6% 18%;
+    --input: 217.2 32.6% 18%;
+    --ring: 224.3 76.3% 55%;
+    --sidebar: 222.2 47% 7%;
+    --sidebar-border: 217.2 32.6% 17%;
+    --surface: 222.2 47% 8.5%;
+    --surface-elevated: 222.2 47% 11%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .oa-display { @apply text-3xl font-bold tracking-tight md:text-4xl; }
+  .oa-h1 { @apply text-2xl font-semibold tracking-tight md:text-3xl; }
+  .oa-h2 { @apply text-xl font-semibold tracking-tight; }
+  .oa-h3 { @apply text-base font-semibold; }
+  .oa-body { @apply text-sm leading-6; }
+  .oa-small { @apply text-xs leading-5; }
+  .oa-caption { @apply text-xs text-muted-foreground; }
+  .oa-code { @apply font-mono text-[13px] rounded bg-muted px-1.5 py-0.5; }
+  .oa-surface { @apply rounded-lg border bg-card text-card-foreground shadow-sm; }
+  .oa-page { @apply mx-auto w-full max-w-7xl space-y-6; }
+  .oa-page-header { @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between; }
+}
+
+@layer utilities {
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .animate-fade-in { animation: fadeIn var(--transition-normal) ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}

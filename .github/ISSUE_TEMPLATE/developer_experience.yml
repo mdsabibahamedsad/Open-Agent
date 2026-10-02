@@ -1,0 +1,23 @@
+name: Developer Experience
+description: SDK, CLI, templates, examples, or portal feedback
+title: "[dx]: "
+labels: ["dx"]
+body:
+  - type: input
+    id: surface
+    attributes:
+      label: Surface
+      description: e.g. @openagent/sdk, openagent Python package, openagent CLI, developer portal
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Friction
+      description: What was slow, confusing, or broken? Include commands run.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement

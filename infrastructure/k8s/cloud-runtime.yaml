@@ -1,0 +1,245 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openagent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openagent-api
+  namespace: openagent
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: openagent-api
+  template:
+    metadata:
+      labels:
+        app: openagent-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: api
+          image: openagent-api:0.1.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: OPENAGENT_ENV
+              value: production
+            - name: OPENAGENT_CLOUD_ENABLED
+              value: "true"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openagent-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openagent-secrets
+                  key: redis-url
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openagent-secrets
+                  key: secret-key
+            - name: WORKER_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openagent-secrets
+                  key: worker-service-token
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openagent-api
+  namespace: openagent
+spec:
+  selector:
+    app: openagent-api
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openagent-worker
+  namespace: openagent
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: openagent-worker
+  template:
+    metadata:
+      labels:
+        app: openagent-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: worker
+          image: openagent-worker:0.1.0
+          command: ["python", "-m", "worker.cloud_worker"]
+          env:
+            - name: API_BASE
+              value: http://openagent-api:8000/api/v1
+            - name: WORKER_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openagent-secrets
+                  key: worker-service-token
+            - name: WORKER_REGION
+              value: local-1
+            - name: WORKER_POOL
+              value: default
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 60"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openagent-scheduler
+  namespace: openagent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openagent-scheduler
+  template:
+    metadata:
+      labels:
+        app: openagent-scheduler
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: scheduler
+          image: openagent-worker:0.1.0
+          command: ["python", "-m", "worker.cloud_scheduler"]
+          env:
+            - name: API_BASE
+              value: http://openagent-api:8000/api/v1
+            - name: WORKER_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openagent-secrets
+                  key: worker-service-token
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openagent-web
+  namespace: openagent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: openagent-web
+  template:
+    metadata:
+      labels:
+        app: openagent-web
+    spec:
+      containers:
+        - name: web
+          image: openagent-web:0.1.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: openagent-config
+                  key: api-url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openagent-web
+  namespace: openagent
+spec:
+  selector:
+    app: openagent-web
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: openagent-worker-hpa
+  namespace: openagent
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openagent-worker
+  minReplicas: 1
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openagent-api-pdb
+  namespace: openagent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: openagent-api
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openagent-config
+  namespace: openagent
+data:
+  api-url: http://openagent-api:8000/api/v1
+  cloud-enabled: "true"
+  default-region: local-1

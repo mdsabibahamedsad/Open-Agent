@@ -1,0 +1,18 @@
+name: Documentation
+description: Report gaps or errors in docs
+title: "[docs]: "
+labels: ["documentation"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page / path
+      description: e.g. docs/developers/security.md or README section
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's wrong or missing?
+    validations:
+      required: true

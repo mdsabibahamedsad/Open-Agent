@@ -1,0 +1,16 @@
+manifest_version: "1"
+name: my-org/hello
+version: 1.0.0
+display_name: Hello connector
+description: Starter connector template (hello-world).
+author: {name: Your Name, email: you@example.com}
+license: MIT
+type: connector
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [network:outbound, connector:use]
+network: {allowed_hosts: [api.example.com]}
+capabilities: [hello]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: UNTRUSTED, network_policy: allowlisted,
+  allowed_hosts: [api.example.com]}

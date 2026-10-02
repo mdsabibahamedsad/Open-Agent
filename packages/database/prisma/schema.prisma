@@ -1,0 +1,108 @@
+// OpenAgent Database Schema
+// This is the foundational schema for users, organizations, and memberships
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  avatar_url    String?
+  password_hash String?
+  is_active     Boolean        @default(true)
+  is_superadmin Boolean        @default(false)
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+  deleted_at    DateTime?
+
+  memberships   Membership[]
+  sessions      Session[]
+  api_keys      ApiKey[]
+
+  @@index([email])
+  @@index([deleted_at])
+  @@map("users")
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  avatar_url  String?
+  settings    Json     @default("{}")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  deleted_at  DateTime?
+
+  memberships Membership[]
+  api_keys    ApiKey[]
+
+  @@index([slug])
+  @@index([deleted_at])
+  @@map("organizations")
+}
+
+model Membership {
+  id             String   @id @default(uuid())
+  user_id        String
+  organization_id String
+  role           String   @default("member") // owner, admin, member, viewer
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  user           User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, organization_id])
+  @@index([user_id])
+  @@index([organization_id])
+  @@map("memberships")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  user_id      String
+  token_hash   String   @unique
+  expires_at   DateTime
+  user_agent   String?
+  ip_address   String?
+  created_at   DateTime @default(now())
+
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([expires_at])
+  @@map("sessions")
+}
+
+model ApiKey {
+  id             String   @id @default(uuid())
+  name           String
+  key_hash       String   @unique
+  key_prefix     String   // First 8 chars for display
+  user_id        String?
+  organization_id String?
+  permissions    Json     @default("[]")
+  expires_at     DateTime?
+  last_used_at   DateTime?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  deleted_at     DateTime?
+
+  user           User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organization_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([organization_id])
+  @@index([key_prefix])
+  @@index([deleted_at])
+  @@map("api_keys")
+}

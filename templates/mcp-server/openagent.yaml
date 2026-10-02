@@ -1,0 +1,14 @@
+manifest_version: "1"
+name: my-org/hello
+version: 1.0.0
+display_name: Hello mcp-server
+description: Starter mcp-server template (hello-world).
+author: {name: Your Name, email: you@example.com}
+license: MIT
+type: mcp-server
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [mcp:connect]
+capabilities: [hello]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: UNTRUSTED, network_policy: none}

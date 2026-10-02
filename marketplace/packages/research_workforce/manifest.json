@@ -1,0 +1,186 @@
+{
+  "author": {
+    "email": "packages@openagent.dev",
+    "name": "OpenAgent",
+    "url": "https://openagent.dev"
+  },
+  "categories": [
+    "Research",
+    "AI & Agents"
+  ],
+  "changelog": "1.0.0: initial official release.",
+  "compatibility": {
+    "api_version": "v1",
+    "feature_requirements": [],
+    "openagent_version": ">=0.1.0",
+    "runtime_version": "*"
+  },
+  "configuration": {
+    "inputs": {
+      "depth": {
+        "default": "standard",
+        "options": [
+          "quick",
+          "standard",
+          "deep"
+        ],
+        "type": "enum"
+      },
+      "notify_channel": {
+        "credential_type": "slack",
+        "required": false,
+        "required_scope": "chat:write",
+        "type": "connector_reference"
+      },
+      "topic": {
+        "label": "Research topic",
+        "required": true,
+        "type": "text"
+      }
+    }
+  },
+  "dependencies": [
+    {
+      "package": "browser-search",
+      "type": "tool",
+      "version": "^1.0.0"
+    },
+    {
+      "optional": true,
+      "package": "slack",
+      "type": "connector",
+      "version": ">=1.0.0"
+    }
+  ],
+  "description": "Manager-led research team: web research, browser deep-dives and sourced reporting with human approval before external sharing.",
+  "evaluation": {
+    "minimum_quality_score": 0.7,
+    "required_checks": [
+      "factuality",
+      "completeness"
+    ]
+  },
+  "format": "openagent-package",
+  "format_version": "1",
+  "license": "Apache-2.0",
+  "package": {
+    "id": "openagent.research-workforce",
+    "name": "Research Workforce",
+    "type": "WORKFORCE",
+    "version": "1.0.0"
+  },
+  "resources": [
+    {
+      "kind": "SKILL",
+      "name": "Web Research",
+      "payload": {
+        "evaluation_criteria": [
+          "factuality",
+          "citation requirement"
+        ],
+        "input_schema": {
+          "properties": {
+            "topic": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "instructions": "Search authoritative sources, cross-check at least two independent sources, record citations.",
+        "output_schema": {
+          "properties": {
+            "findings": {
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "required_connectors": [],
+        "required_tools": [
+          "browser-search"
+        ]
+      },
+      "slug": "web-research"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Research Manager",
+      "payload": {
+        "handoff_rules": [
+          "browser-agent -> report-agent"
+        ],
+        "memory": {
+          "memory_mode": "team-shared",
+          "retention": "project"
+        },
+        "model_preset": "BALANCED",
+        "skills": [
+          "web-research"
+        ],
+        "system_prompt": "You coordinate research workers and synthesize cited reports."
+      },
+      "slug": "research-manager"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Browser Research Agent",
+      "payload": {
+        "browser": {
+          "domains": [],
+          "download_allowed": false
+        },
+        "model_preset": "FAST",
+        "skills": [
+          "web-research"
+        ],
+        "system_prompt": "You browse allow-listed domains and extract evidence."
+      },
+      "slug": "browser-agent"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Report Agent",
+      "payload": {
+        "model_preset": "HIGH_QUALITY",
+        "skills": [
+          "web-research"
+        ],
+        "system_prompt": "You write sourced reports from verified findings."
+      },
+      "slug": "report-agent"
+    },
+    {
+      "kind": "WORKFLOW",
+      "name": "Research Pipeline",
+      "payload": {
+        "agents": [
+          "research-manager",
+          "browser-agent",
+          "report-agent"
+        ],
+        "approvals": [
+          "publish_content"
+        ],
+        "triggers": [
+          "manual"
+        ]
+      },
+      "slug": "research-pipeline"
+    }
+  ],
+  "security": {
+    "network": "restricted",
+    "required_approvals": [
+      "publish_content"
+    ],
+    "risk_notes": "External sharing requires approval.",
+    "sandbox_profile": ""
+  },
+  "tags": [
+    "research",
+    "browser",
+    "reporting"
+  ],
+  "trust": "CORE",
+  "visibility": "PUBLIC"
+}

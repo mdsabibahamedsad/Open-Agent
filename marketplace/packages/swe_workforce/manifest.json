@@ -1,0 +1,176 @@
+{
+  "author": {
+    "email": "packages@openagent.dev",
+    "name": "OpenAgent",
+    "url": "https://openagent.dev"
+  },
+  "categories": [
+    "Coding",
+    "Developer Tools"
+  ],
+  "changelog": "1.0.0: initial official release.",
+  "code_requirements": {
+    "language": "python",
+    "sandbox_profile": "BUILD",
+    "test_commands": [
+      "pytest -q"
+    ]
+  },
+  "compatibility": {
+    "api_version": "v1",
+    "feature_requirements": [],
+    "openagent_version": ">=0.1.0",
+    "runtime_version": "*"
+  },
+  "configuration": {
+    "inputs": {}
+  },
+  "dependencies": [
+    {
+      "package": "code-search",
+      "type": "tool",
+      "version": "^1.0.0"
+    }
+  ],
+  "description": "Planner, coder, tester and reviewer agents operating through the Code Agent and Sandbox with approvals on merge and production changes.",
+  "evaluation": {
+    "minimum_quality_score": 0.7,
+    "required_checks": [
+      "factuality",
+      "completeness"
+    ]
+  },
+  "format": "openagent-package",
+  "format_version": "1",
+  "license": "Apache-2.0",
+  "package": {
+    "id": "openagent.swe-workforce",
+    "name": "Software Engineering Workforce",
+    "type": "WORKFORCE",
+    "version": "1.0.0"
+  },
+  "resources": [
+    {
+      "kind": "SKILL",
+      "name": "Python Development",
+      "payload": {
+        "evaluation_criteria": [
+          "schema compliance",
+          "completeness"
+        ],
+        "input_schema": {
+          "properties": {
+            "task": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "instructions": "Write typed, tested Python. Never commit secrets. Run tests before review.",
+        "output_schema": {
+          "properties": {
+            "patch": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "required_connectors": [],
+        "required_tools": [
+          "code-search"
+        ]
+      },
+      "slug": "python-development"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Planner",
+      "payload": {
+        "model_preset": "REASONING",
+        "skills": [
+          "python-development"
+        ],
+        "system_prompt": "You decompose engineering tasks into safe, testable steps."
+      },
+      "slug": "planner"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Coder",
+      "payload": {
+        "model_preset": "CODING",
+        "sandbox": {
+          "profile": "BUILD"
+        },
+        "skills": [
+          "python-development"
+        ],
+        "system_prompt": "You implement code changes inside the sandbox only."
+      },
+      "slug": "coder"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Tester",
+      "payload": {
+        "model_preset": "CODING",
+        "sandbox": {
+          "profile": "TEST"
+        },
+        "skills": [
+          "python-development"
+        ],
+        "system_prompt": "You run tests and report failures with reproductions."
+      },
+      "slug": "tester"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Reviewer",
+      "payload": {
+        "model_preset": "REASONING",
+        "skills": [
+          "python-development"
+        ],
+        "system_prompt": "You review patches for safety and correctness."
+      },
+      "slug": "reviewer"
+    },
+    {
+      "kind": "WORKFLOW",
+      "name": "Issue to PR",
+      "payload": {
+        "agents": [
+          "planner",
+          "coder",
+          "tester",
+          "reviewer"
+        ],
+        "approvals": [
+          "merge_code",
+          "modify_production"
+        ],
+        "triggers": [
+          "manual"
+        ]
+      },
+      "slug": "issue-to-pr"
+    }
+  ],
+  "security": {
+    "network": "restricted",
+    "required_approvals": [
+      "merge_code",
+      "modify_production"
+    ],
+    "risk_notes": "All code runs in the sandbox; merges need approval.",
+    "sandbox_profile": "BUILD"
+  },
+  "tags": [
+    "coding",
+    "review",
+    "sandbox"
+  ],
+  "trust": "CORE",
+  "visibility": "PUBLIC"
+}

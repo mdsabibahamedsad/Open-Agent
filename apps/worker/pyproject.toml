@@ -1,0 +1,30 @@
+{
+  "name": "@openagent/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "python -m worker.main",
+    "build": "echo 'No build step for Python worker'",
+    "lint": "ruff check .",
+    "typecheck": "mypy .",
+    "test": "pytest",
+    "clean": "rm -rf __pycache__ .pytest_cache .mypy_cache"
+  },
+  "dependencies": {
+    "@openagent/types": "workspace:*",
+    "@openagent/config": "workspace:*",
+    "@openagent/core": "workspace:*",
+    "@openagent/logger": "workspace:*",
+    "@openagent/database": "workspace:*",
+    "redis": "^5.0.0",
+    "pydantic": "^2.5.0",
+    "pydantic-settings": "^2.1.0",
+    "structlog": "^24.1.0"
+  },
+  "devDependencies": {
+    "pytest": "^7.4.0",
+    "pytest-asyncio": "^0.21.0",
+    "ruff": "^0.1.0",
+    "mypy": "^1.7.0"
+  }
+}

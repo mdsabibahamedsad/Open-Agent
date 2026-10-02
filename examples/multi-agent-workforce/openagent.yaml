@@ -1,0 +1,16 @@
+manifest_version: "1"
+name: my-org/support-team
+version: 1.0.0
+display_name: Support Team
+description: Triage + resolver agent team with handoff contract.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: agent-team
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [agent:invoke, workflow:execute, model:invoke]
+capabilities: [support.triage, support.resolve]
+events: [agent.run.completed.v1, workflow.execution.completed.v1]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: ORGANIZATION, network_policy: none}

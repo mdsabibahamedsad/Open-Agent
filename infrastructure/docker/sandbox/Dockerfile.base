@@ -1,0 +1,41 @@
+# openagent-sandbox-base — minimal, non-root, pinned toolchain.
+# Build: docker build -t openagent-sandbox-base:<version> -f Dockerfile.base .
+# Pin by digest in production (SANDBOX_IMAGE_DIGEST); never use :latest.
+FROM python:3.11-slim-bookworm AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_INPUT=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    GIT_TERMINAL_PROMPT=0 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Minimal toolchain only: git + node (one LTS) + python. No docker CLI,
+# no sudo, no compilers beyond what language variants add.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    ca-certificates \
+    curl \
+    nodejs \
+    npm \
+    tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g npm@10 --no-audit --no-fund || true
+
+# Non-root sandbox user (uid 65532 matches the provider default).
+RUN useradd --uid 65532 --create-home --shell /bin/false sandbox \
+    && mkdir -p /workspace /artifacts /app /runtime \
+    && chown -R 65532:65532 /workspace /artifacts /home/sandbox
+
+# Common test/lint entrypoints (also directly invocable via argv).
+RUN pip install --no-cache-dir pytest==8.* ruff==0.* \
+    && npm install -g --no-audit --no-fund typescript@5 eslint@8 pnpm@8 yarn@1 || true
+
+WORKDIR /workspace
+USER 65532:65532
+
+# Keep-alive: the manager exec's commands into the running container.
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["sleep", "infinity"]

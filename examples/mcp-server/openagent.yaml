@@ -1,0 +1,16 @@
+manifest_version: "1"
+name: my-org/kb-server
+version: 1.0.0
+display_name: KB MCP server
+description: Notes search tool, document resources, summarize prompt.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: mcp-server
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [mcp:connect, storage:use]
+capabilities: [kb.search, kb.read, kb.summarize]
+events: [mcp.server.connected.v1, mcp.server.disconnected.v1]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: UNTRUSTED, network_policy: none}

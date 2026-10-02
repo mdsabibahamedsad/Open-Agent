@@ -1,0 +1,20 @@
+manifest_version: "1"
+name: my-org/research-agent
+version: 1.0.0
+display_name: Research Agent
+description: Researches a topic with a search tool and scoped memory.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: agent
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [tool:execute, model:invoke, memory:read, memory:write]
+capabilities: [research, summarize]
+events: [agent.run.completed.v1, agent.run.failed.v1]
+config_schema:
+  type: object
+  properties:
+    max_sources: {type: integer, default: 5, minimum: 1, maximum: 20}
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: UNTRUSTED, network_policy: none}

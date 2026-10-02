@@ -1,0 +1,20 @@
+manifest_version: "1"
+name: my-org/py-run
+version: 1.0.0
+display_name: Python Runner
+description: Execute Python snippets inside the sandbox boundary.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: tool
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [sandbox:execute, filesystem:artifact]
+capabilities: [py.run]
+events: [tool.completed.v1, tool.failed.v1]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security:
+  trust_level: ORGANIZATION
+  network_policy: none
+  sandbox_profile: CODE_DEFAULT
+  risk_notes: No network; 10s timeout; artifacts exported via scanned storage refs.

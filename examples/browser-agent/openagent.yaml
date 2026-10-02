@@ -1,0 +1,21 @@
+manifest_version: "1"
+name: my-org/price-watch
+version: 1.0.0
+display_name: Price Watch
+description: Monitor a product page under browser policy.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: browser-extension
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [browser:use, tool:execute]
+capabilities: [price.watch]
+events: [agent.run.completed.v1]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security:
+  trust_level: ORGANIZATION
+  network_policy: allowlisted
+  allowed_hosts: [shop.example.com]
+  sandbox_profile: BROWSER
+  risk_notes: Read-only navigation of one allowlisted shop host; no form fills.

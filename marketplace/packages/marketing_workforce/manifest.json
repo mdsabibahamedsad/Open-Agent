@@ -1,0 +1,198 @@
+{
+  "author": {
+    "email": "packages@openagent.dev",
+    "name": "OpenAgent",
+    "url": "https://openagent.dev"
+  },
+  "categories": [
+    "Marketing",
+    "Content",
+    "SEO"
+  ],
+  "changelog": "1.0.0: initial official release.",
+  "compatibility": {
+    "api_version": "v1",
+    "feature_requirements": [],
+    "openagent_version": ">=0.1.0",
+    "runtime_version": "*"
+  },
+  "configuration": {
+    "inputs": {
+      "company_name": {
+        "required": true,
+        "type": "text"
+      },
+      "target_market": {
+        "required": true,
+        "type": "text"
+      },
+      "tone": {
+        "default": "professional",
+        "type": "text"
+      }
+    }
+  },
+  "dependencies": [],
+  "description": "Research, content, SEO and analytics agents producing on-brand content with approval before anything is published.",
+  "evaluation": {
+    "minimum_quality_score": 0.7,
+    "required_checks": [
+      "factuality",
+      "completeness"
+    ]
+  },
+  "format": "openagent-package",
+  "format_version": "1",
+  "license": "Apache-2.0",
+  "package": {
+    "id": "openagent.marketing-workforce",
+    "name": "Marketing Workforce",
+    "type": "WORKFORCE",
+    "version": "1.0.0"
+  },
+  "resources": [
+    {
+      "kind": "SKILL",
+      "name": "SEO Research",
+      "payload": {
+        "evaluation_criteria": [
+          "completeness",
+          "tone"
+        ],
+        "input_schema": {
+          "properties": {
+            "keyword": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "instructions": "Analyze keywords, intent and competition; cite search data.",
+        "output_schema": {
+          "properties": {
+            "brief": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "required_connectors": [],
+        "required_tools": [
+          "browser-search"
+        ]
+      },
+      "slug": "seo-research"
+    },
+    {
+      "kind": "SKILL",
+      "name": "Content Writing",
+      "payload": {
+        "evaluation_criteria": [
+          "tone",
+          "factuality"
+        ],
+        "input_schema": {
+          "properties": {
+            "brief": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "instructions": "Write original, on-brand content. Verify factual claims against research.",
+        "output_schema": {
+          "properties": {
+            "draft": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "required_connectors": [],
+        "required_tools": []
+      },
+      "slug": "content-writing"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Market Researcher",
+      "payload": {
+        "model_preset": "BALANCED",
+        "skills": [
+          "seo-research"
+        ],
+        "system_prompt": "You research markets and audiences."
+      },
+      "slug": "research"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Content Writer",
+      "payload": {
+        "model_preset": "HIGH_QUALITY",
+        "skills": [
+          "content-writing"
+        ],
+        "system_prompt": "You write and revise marketing content."
+      },
+      "slug": "content"
+    },
+    {
+      "kind": "AGENT",
+      "name": "SEO Specialist",
+      "payload": {
+        "model_preset": "BALANCED",
+        "skills": [
+          "seo-research",
+          "content-writing"
+        ],
+        "system_prompt": "You optimize content for search without keyword stuffing."
+      },
+      "slug": "seo"
+    },
+    {
+      "kind": "AGENT",
+      "name": "Analytics Reviewer",
+      "payload": {
+        "model_preset": "BALANCED",
+        "skills": [],
+        "system_prompt": "You check content against performance data."
+      },
+      "slug": "analytics"
+    },
+    {
+      "kind": "WORKFLOW",
+      "name": "Content Pipeline",
+      "payload": {
+        "agents": [
+          "research",
+          "content",
+          "seo",
+          "analytics"
+        ],
+        "approvals": [
+          "publish_content"
+        ],
+        "triggers": [
+          "manual"
+        ]
+      },
+      "slug": "content-pipeline"
+    }
+  ],
+  "security": {
+    "network": "restricted",
+    "required_approvals": [
+      "publish_content"
+    ],
+    "risk_notes": "Publishing requires human approval.",
+    "sandbox_profile": ""
+  },
+  "tags": [
+    "marketing",
+    "seo",
+    "content"
+  ],
+  "trust": "CORE",
+  "visibility": "PUBLIC"
+}

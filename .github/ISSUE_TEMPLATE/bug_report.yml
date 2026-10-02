@@ -1,0 +1,45 @@
+name: Bug Report
+description: Report a reproducible problem
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please fill in everything you can — it makes a fix much faster.
+        For security vulnerabilities, do NOT use this template; see `SECURITY.md` instead.
+  - type: input
+    id: component
+    attributes:
+      label: Component
+      description: e.g. apps/api, apps/web, apps/worker, packages/sdk, packages/cli, docs
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw vs. what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Minimal commands, config (redact secrets), and environment
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      description: Paste relevant output with secrets redacted
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: App version or git SHA, plus OS / Node / Python versions

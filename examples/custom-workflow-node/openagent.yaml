@@ -1,0 +1,16 @@
+manifest_version: "1"
+name: my-org/text-nodes
+version: 1.0.0
+display_name: Text nodes
+description: Uppercase transform node for the workflow engine.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: workflow-node
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [workflow:execute, filesystem:workspace]
+capabilities: [text.uppercase]
+events: [workflow.execution.completed.v1, workflow.execution.failed.v1]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: UNTRUSTED, network_policy: none}

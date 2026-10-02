@@ -1,0 +1,22 @@
+manifest_version: "1"
+name: my-org/telegram
+version: 1.0.0
+display_name: Telegram
+description: Send Telegram messages and receive webhook updates.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: connector
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [network:outbound, connector:use, webhook:receive, secret:access]
+network: {allowed_hosts: [api.telegram.org]}
+secrets: [TELEGRAM_BOT_TOKEN]
+required_services: [credential-store, http-egress]
+capabilities: [telegram.messages.send]
+events: [connector.event.received.v1]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security:
+  trust_level: COMMUNITY
+  network_policy: allowlisted
+  allowed_hosts: [api.telegram.org]

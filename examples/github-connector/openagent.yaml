@@ -1,0 +1,23 @@
+manifest_version: "1"
+name: my-org/github-custom
+version: 1.0.0
+display_name: GitHub custom
+description: Read-only GitHub org repo listing via the guarded connector pipeline.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: connector
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [network:outbound, connector:use, secret:access]
+network: {allowed_hosts: [api.github.com]}
+secrets: [GITHUB_CLIENT_SECRET]
+required_services: [credential-store, http-egress]
+capabilities: [github-custom.repos.read]
+events: [connector.event.received.v1]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security:
+  trust_level: COMMUNITY
+  network_policy: allowlisted
+  allowed_hosts: [api.github.com]
+  risk_notes: Read-only; OAuth scopes limited to repo read.

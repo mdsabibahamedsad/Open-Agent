@@ -1,0 +1,30 @@
+name: Feature Request
+description: Propose a new capability
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow is painful or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should exist? API shape, CLI UX, or UI sketch
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope checklist
+      options:
+        - label: Fits the existing architecture (no parallel second system)
+        - label: I can help implement or test this

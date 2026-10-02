@@ -1,0 +1,20 @@
+manifest_version: "1"
+name: my-org/hello-agent
+version: 1.0.0
+display_name: Hello Agent
+description: A minimal agent that greets the user.
+author: {name: OpenAgent Examples, email: examples@openagent.dev}
+license: MIT
+repository: https://github.com/openagent/openagent
+type: agent
+runtime: {language: typescript, entrypoint: src/index.ts}
+permissions: [tool:execute, model:invoke]
+capabilities: [greet]
+events: [agent.run.completed.v1, agent.run.failed.v1]
+config_schema:
+  type: object
+  properties:
+    greeting: {type: string, default: Hello}
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: UNTRUSTED, network_policy: none}

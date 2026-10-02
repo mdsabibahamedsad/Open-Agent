@@ -1,0 +1,14 @@
+manifest_version: "1"
+name: my-org/hello
+version: 1.0.0
+display_name: Hello tool
+description: Starter tool template (hello-world).
+author: {name: Your Name, email: you@example.com}
+license: MIT
+type: tool
+runtime: {language: python, entrypoint: src/tool.py}
+permissions: [tool:execute, filesystem:workspace]
+capabilities: [hello]
+compatibility: {openagent: ">=1.0.0 <2.0.0", sdk: ">=1.0.0 <2.0.0",
+  extension_api: "1.x", api_version: v1}
+security: {trust_level: UNTRUSTED, network_policy: none}
