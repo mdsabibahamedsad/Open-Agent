@@ -114,7 +114,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full technical document.
 
 ## Quick Start
 
-Prerequisites: Node.js 20+, pnpm 8.15+, Python 3.11+, Docker & Docker Compose.
+Prerequisites: Git, Node.js 20+, pnpm 8.15+, Python 3.11+, Docker & Docker Compose.
+Run `pnpm doctor` at any time to verify your machine. Full guides: [quick-start](docs/getting-started/quick-start.md) · [Windows](docs/getting-started/windows.md) · [macOS](docs/getting-started/macos.md) · [Linux](docs/getting-started/linux.md) · [troubleshooting](docs/getting-started/troubleshooting.md).
 
 ```bash
 git clone https://github.com/mdsabibahamedsad/Open-Agent.git
@@ -130,6 +131,17 @@ docker compose up -d
 - Web: http://localhost:3000
 - API: http://localhost:8000
 - API docs (development): http://localhost:8000/docs
+
+### Run modes
+
+| Mode | Command | Details |
+| ---- | ------- | ------- |
+| Docker (recommended) | `docker compose up --build` | [docker guide](docs/getting-started/docker.md) |
+| Guided native | `pnpm setup` then `pnpm dev:local` | [non-docker guide](docs/getting-started/non-docker.md) |
+| Hybrid | `pnpm infra:up` then `pnpm dev:local` | [hybrid guide](docs/getting-started/hybrid.md) |
+| Local AI | `ollama serve` + provider config | [local-ai guide](docs/getting-started/local-ai.md) |
+
+Supported: Windows (PowerShell/WSL2), macOS (Apple Silicon + Intel), Linux — each with Docker and non-Docker paths. pnpm 8.15 is canonical; npm can run root scripts after `pnpm install`.
 
 ### Build an extension in minutes
 
@@ -245,8 +257,25 @@ Open-Agent/
 git clone https://github.com/mdsabibahamedsad/Open-Agent.git
 cd Open-Agent
 
-pnpm install
+pnpm setup         # deps + .env with fresh dev secrets (never overwrites .env)
+pnpm doctor        # verify environment (read-only)
 
+# Option A — Docker for everything
+pnpm dev           # or: docker compose up --build
+
+# Option B — hybrid: infra in Docker, code native
+pnpm infra:up
+pnpm db:setup      # migrate + seed
+pnpm dev:local     # web + api + worker, one banner, Ctrl+C stops all
+
+# Option C — fully native (needs local Postgres 15+ + Redis 7+)
+pnpm db:setup
+pnpm dev:local
+```
+
+Manual equivalents (what the scripts do under the hood):
+
+```bash
 cp .env.example .env
 docker compose up -d          # Postgres + Redis
 

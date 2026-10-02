@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, List, Optional, AsyncGenerator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from openagent.core.config import get_settings
 

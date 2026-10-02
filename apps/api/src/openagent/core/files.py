@@ -1,15 +1,18 @@
 import hashlib
+import io
 import mimetypes
 import os
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, List, Optional, AsyncGenerator
 from dataclasses import dataclass, field
 
-from fastapi import UploadFile, File, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import String, Text, ForeignKey, Index, Enum as SQLEnum, DateTime, JSON, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -17,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from openagent.db.models.base import Base, TimestampMixin, UUIDMixin
+from openagent.db.session import get_db
 from openagent.core.config import get_settings
 from openagent.core.storage import StorageService, StoredFile, StorageProvider
 
@@ -52,7 +56,7 @@ class FileUpload(Base, TimestampMixin):
     storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
     storage_bucket: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(
-        Enum(FileUploadStatus, name="file_upload_status", create_constraint=True),
+        SQLEnum(FileUploadStatus, name="file_upload_status", create_constraint=True),
         default=FileUploadStatus.PENDING,
         nullable=False
     )
@@ -327,7 +331,6 @@ async def get_file_upload_service(
 
 
 # FastAPI endpoints for file uploads
-from fastapi import APIRouter, Depends, File, UploadFile, Form, Query
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/files", tags=["file-uploads"])
@@ -508,13 +511,3 @@ async def delete_upload(
             detail={"error": "Upload not found", "code": "UPLOAD_NOT_FOUND"},
         )
 
-
-# Import needed modules
-import io
-import uuid
-import hashlib
-from datetime import timedelta
-from typing import Optional
-from fastapi import Form
-from pydantic import BaseModel
-from pathlib import Path

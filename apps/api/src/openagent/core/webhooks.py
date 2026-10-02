@@ -41,7 +41,7 @@ class WebhookEvent(Base, TimestampMixin):
     event_type: Mapped[str] = mapped_column(String(255), nullable=False)
     payload: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(
-        Enum(WebhookEventStatus, name="webhook_event_status", create_constraint=True),
+        SQLEnum(WebhookEventStatus, name="webhook_event_status", create_constraint=True),
         default=WebhookEventStatus.PENDING,
         nullable=False,
         index=True

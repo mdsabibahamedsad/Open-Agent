@@ -34,7 +34,6 @@ from openagent.db.models import (
     Evaluation,
     AuditLog,
     Webhook,
-    WebhookEvent,
     EmailVerificationToken,
     PasswordResetToken,
     PlatformOwner,
@@ -52,7 +51,6 @@ from openagent.db.models import (
     EventSubscription,
     ScheduledJob,
     ScheduledJobRun,
-    FileUpload,
 )
 from openagent.core.config import get_settings
 
