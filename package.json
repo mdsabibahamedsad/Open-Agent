@@ -6,6 +6,8 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "version": "node scripts/version.mjs",
+    "release:check": "node scripts/release-check.mjs",
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=@openagent/web",
     "dev:api": "node scripts/dev.mjs --only=api",

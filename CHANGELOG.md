@@ -4,6 +4,65 @@ All notable changes to this project are documented here. We follow
 [Semantic Versioning](https://semver.org/) and
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [Unreleased] — Release hardening (MP30)
+
+No application behavior changed. All entries are developer-experience,
+packaging, deployment, documentation, or release-engineering work.
+
+### Added
+
+- `docker-compose.production.yml`: production overlay (required secrets via
+  environment, DB/Redis on an internal network with no published ports,
+  healthchecks, restart policies, loopback-only web/API bindings).
+- `.env.production.example`: production template, placeholders only, with
+  required-vs-optional grouping.
+- `pnpm version` (`pnpm run version` — bare `pnpm version` prints the
+  toolchain, a pnpm behavior): reports canonical platform version plus
+  web/CLI/API/Python-SDK component versions from metadata, never hard-coded.
+- `pnpm release:check`: read-only release gate (branch, clean tree, version
+  agreement, required files, secret scan, single Alembic head, changelog
+  entry, prod-config agreement, CLI dist present). Validates only; never
+  publishes, pushes, or tags.
+- `.github/workflows/release.yml`: tag-gated (`v*`) validation pipeline
+  (install, lint, typecheck, unit, backend, docker build, migration check,
+  SBOM, SHA-256 checksums). No registry publish step (no registry
+  configured).
+- `.github/ISSUE_TEMPLATE/security_report.yml`: private-report template
+  pointing to `SECURITY.md`; no public vulnerability details.
+- `docs/release/`: `release-readiness.md` (evidence-based READY/BETA/
+  EXPERIMENTAL/PLANNED matrix), `release-notes.md`,
+  `final-release-report.md`.
+- `docs/deployment/`: `self-hosted.md`, `production-checklist.md`,
+  `upgrading.md` (with rollback procedure: app/config rollback safe,
+  database via tested backup/forward-fix, never blind downgrade).
+- `docs/security/data-flow.md` (trust boundaries, where data may leave
+  operator infra) and `docs/security/privacy.md` (self-hosted privacy).
+- `THIRD_PARTY_NOTICES.md`: generated from installed dependency metadata.
+
+### Fixed
+
+- `apps/worker/pyproject.toml` contained npm JSON — replaced with valid
+  Python packaging metadata (worker install/build/CI un-broken).
+- All `clean` scripts were Unix-only (`rm -rf`) — now cross-platform
+  Node `fs.rmSync`.
+- Per-package `lint` ran ESLint with no config (always failed); now a real
+  `prettier --check`. Added `apps/web/.eslintrc.json` so `next lint` runs
+  non-interactively and reports genuine findings.
+- `apps/web/Dockerfile` ran `pnpm install --frozen-lockfile` with no
+  lockfile in build context — now `--no-frozen-lockfile`.
+- Package sources formatted to the repo's declared prettier standard
+  (formatting only, no semantic changes).
+
+### Known Issues
+
+- `next lint` (web): pre-existing errors (unescaped entities, conditional
+  hooks in `workflows/[id]/edit`).
+- `typecheck` (`@openagent/mcp`): pre-existing unused-import/missing-export
+  errors.
+- `build` (`@openagent/api-client`): pre-existing type error in test file.
+- Web dev image runs as root; production multi-stage/non-root web image is
+  documented future work. No release tag created (gates not all green).
+
 ## [1.0.0] - 2026-10-02 — Developer Platform (MP28)
 
 First stable developer platform: one canonical extension architecture (single
@@ -36,9 +95,9 @@ systems).
   agents, tools, workflows, connectors, MCP, memory, evaluations, extensions,
   events — Bearer auth, org scoping, idempotency keys, versioned events.
 - CLI (`openagent`): `init/login/logout/whoami/dev/validate/test/
-  build/package/publish/deploy/rollback` plus `agents/tools/workflows/
-  connectors/mcp/skills/registry/marketplace/logs/runs/deployments/projects/
-  config/doctor/upgrade/generate/docs/migrate`; JSON/CI mode with exit codes.
+build/package/publish/deploy/rollback` plus `agents/tools/workflows/
+connectors/mcp/skills/registry/marketplace/logs/runs/deployments/projects/
+config/doctor/upgrade/generate/docs/migrate`; JSON/CI mode with exit codes.
 - REST API: developer projects/environments, extension lifecycle
   (`validate/test/package/publish/sign/install/quarantine/rollback`),
   registry/webhooks/events/usage, public `sdk/errors/events` metadata;

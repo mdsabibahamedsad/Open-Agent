@@ -1,0 +1,24 @@
+name: Security Report (READ FIRST)
+description: Private vulnerability reporting — do NOT file public security issues
+title: "[security]: "
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ Do NOT describe vulnerabilities here. Public issues are visible to everyone.
+        Report privately per `SECURITY.md` (security@openagent.dev) with:
+        description, reproduction steps, impact, suggested fix, and your contact.
+        This template exists only to redirect accidental public filings.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I understand public security reports will be closed/deleted, and I will report privately instead
+          required: true
+  - type: textarea
+    id: non-sensitive
+    attributes:
+      label: Non-sensitive context (optional)
+      description: Only information that is safe to share publicly (e.g. docs link that needs a security clarification). Never paste exploits, credentials, or private data.

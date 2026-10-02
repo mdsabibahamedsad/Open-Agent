@@ -13,10 +13,11 @@ out
 # Turbo
 .turbo
 
-# Environment files
+# Environment files (real env is never committed; examples are)
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # IDE
 .idea
