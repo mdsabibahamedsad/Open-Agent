@@ -1,15 +1,71 @@
+import asyncio
 from contextlib import asynccontextmanager
+
+import redis.asyncio as redis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from openagent.api import v1_router
 from openagent.core.config import get_settings
 from openagent.core.logging import configure_logging, get_logger
-from openagent.core.security.headers import SecurityHeadersMiddleware, RequestSizeLimitMiddleware, RequestTimeoutMiddleware
-from openagent.middleware import RequestCorrelationMiddleware, ErrorHandlingMiddleware
-from openagent.api import v1_router
-from openagent.db.session import init_db, close_db
-
+from openagent.core.metrics import MetricsMiddleware
+from openagent.core.security.headers import (
+    RequestSizeLimitMiddleware,
+    RequestTimeoutMiddleware,
+    SecurityHeadersMiddleware,
+)
+from openagent.db.session import async_session_maker, close_db, init_db
+from openagent.middleware import (
+    ErrorHandlingMiddleware,
+    RequestCorrelationMiddleware,
+    register_error_handlers,
+)
 
 logger = get_logger("openagent.main")
+
+# Minimum accepted secret length (matches Settings min_length=32).
+MIN_SECRET_LENGTH = 32
+
+# Bounds for the startup dependency probe (seconds). Short on purpose:
+# startup must fail fast, never hang the deploy.
+STARTUP_PROBE_TIMEOUT = 10
+REDIS_PROBE_CONNECT_TIMEOUT = 5
+
+_ENGINE_NOT_INITIALIZED = "database engine not initialized"
+
+
+async def _probe_dependencies(fail_fast: bool) -> None:
+    """Verify database + Redis reachability at startup.
+
+    Production: raise RuntimeError (fail fast, never serve half-wired).
+    Non-production: log a warning and continue so `pnpm dev` works
+    before `pnpm infra:up`.
+    """
+    settings = get_settings()
+
+    async def _probe_db() -> None:
+        maker = async_session_maker
+        if maker is None:
+            raise RuntimeError(_ENGINE_NOT_INITIALIZED)
+        async with maker() as session:
+            await session.execute("SELECT 1")
+
+    async def _probe_redis() -> None:
+        client = redis.from_url(settings.REDIS_URL, socket_connect_timeout=REDIS_PROBE_CONNECT_TIMEOUT)
+        try:
+            await client.ping()
+        finally:
+            await client.close()
+
+    for name, probe in (("database", _probe_db), ("redis", _probe_redis)):
+        try:
+            await asyncio.wait_for(probe(), timeout=STARTUP_PROBE_TIMEOUT)
+            logger.info("Startup dependency reachable", dependency=name)
+        except Exception as exc:
+            message = f"Startup dependency unreachable: {name} ({exc})"
+            if fail_fast:
+                raise RuntimeError(message) from exc
+            logger.warning(message)
 
 
 @asynccontextmanager
@@ -18,6 +74,20 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info("Starting OpenAgent API", environment=settings.OPENAGENT_ENV)
     if settings.is_production:
+        # Fail fast on missing/weak cryptographic configuration. (Pydantic
+        # also enforces min_length, but this produces an actionable message.)
+        for key in ("SECRET_KEY", "ENCRYPTION_KEY"):
+            value = getattr(settings, key, "")
+            if not value or len(value) < MIN_SECRET_LENGTH:
+                message = (
+                    f"Production startup blocked: {key} is missing or shorter "
+                    f"than {MIN_SECRET_LENGTH} characters."
+                )
+                raise RuntimeError(message)
+        for key in ("DATABASE_URL", "REDIS_URL"):
+            if not getattr(settings, key, ""):
+                message = f"Production startup blocked: {key} is missing."
+                raise RuntimeError(message)
         # MP19: refuse silently-insecure approval configuration in production.
         from openagent.approvals.config import ApprovalSettings
         problems = ApprovalSettings().validate_production()
@@ -54,6 +124,8 @@ async def lifespan(app: FastAPI):
         register_official()
     init_db()
     logger.info("Database initialized")
+    # Fail fast in production when dependencies are unreachable; warn in dev.
+    await _probe_dependencies(fail_fast=settings.is_production)
     yield
     logger.info("Shutting down OpenAgent API")
     await close_db()
@@ -88,6 +160,16 @@ def create_app() -> FastAPI:
 
     app.add_middleware(RequestCorrelationMiddleware)
     app.add_middleware(ErrorHandlingMiddleware, is_development=settings.is_development)
+
+    # Standard ApiError envelope for errors raised in routes (FastAPI's
+    # internal exception middleware would otherwise bypass user
+    # middleware and return plain {"detail": ...} without request_id).
+    register_error_handlers(app, is_development=settings.is_development)
+
+    # In-memory request metrics (http_requests_total,
+    # http_request_duration_seconds). Surfaced as JSON via
+    # GET /api/v1/operations/metrics; paths are cardinality-normalized.
+    app.add_middleware(MetricsMiddleware)
 
     app.include_router(v1_router, prefix="/api/v1")
 

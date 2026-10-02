@@ -16,6 +16,11 @@ def init_db() -> None:
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=20,
+        # Recycle connections so stale/forked server-side closes never
+        # poison the pool; fail fast instead of queueing forever when
+        # the pool is exhausted (surfaces as 503, not a hung request).
+        pool_recycle=3600,
+        pool_timeout=30,
     )
     async_session_maker = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False

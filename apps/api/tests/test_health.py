@@ -1,5 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from openagent.main import app
 
 
@@ -21,11 +22,18 @@ async def test_health_check(client):
 @pytest.mark.asyncio
 async def test_readiness_check(client):
     response = await client.get("/api/v1/health/ready")
-    assert response.status_code == 200
+    # 200 when all dependencies answer, 503 when degraded (never 200
+    # while degraded — load balancers must not route to a sick instance).
+    assert response.status_code in (200, 503)
     data = response.json()
-    assert data["status"] in ["ok", "degraded"]
     assert data["service"] == "openagent-api"
     assert "checks" in data
+    if response.status_code == 200:
+        assert data["status"] == "ok"
+        assert all(data["checks"].values())
+    else:
+        assert data["status"] == "degraded"
+        assert not all(data["checks"].values())
 
 
 @pytest.mark.asyncio

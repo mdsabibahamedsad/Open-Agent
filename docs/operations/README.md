@@ -12,6 +12,9 @@
 * [Security operations](./security-operations.md) — response + audit.
 * [Enterprise](./enterprise.md) — org controls, private runtime.
 * [Disaster recovery](./disaster-recovery.md) — backups, restore tests.
+* [Backup & restore](./backup-restore.md) — self-hosted pg_dump/storage/secret procedures.
+* [Health checks](./health-checks.md) — liveness vs readiness semantics.
+* [Production readiness](./production-readiness.md) — deploy gates.
 * [Capacity planning](./capacity-planning.md) — utilization and headroom.
 * [FinOps](./finops.md) — cost allocation (real pricing only).
 * [Runbooks](./runbooks/) — outage procedures.

@@ -24,15 +24,19 @@ class ApprovalRepository(BaseRepository[Approval]):
         )
         return list(result.scalars().all())
 
-    async def list_by_run(self, run_id: UUID) -> List[Approval]:
+    # NOTE: scoped to a single run, but still bounded — callers rendering
+    # these rows must never be able to pull an unbounded result set.
+    async def list_by_run(self, run_id: UUID, limit: int = 500) -> List[Approval]:
         result = await self.session.execute(
-            select(Approval).where(Approval.run_id == run_id).order_by(Approval.created_at.desc())
+            select(Approval).where(Approval.run_id == run_id).order_by(Approval.created_at.desc()).limit(limit)
         )
         return list(result.scalars().all())
 
-    async def list_by_workflow_execution(self, workflow_execution_id: UUID) -> List[Approval]:
+    async def list_by_workflow_execution(
+        self, workflow_execution_id: UUID, limit: int = 500
+    ) -> List[Approval]:
         result = await self.session.execute(
-            select(Approval).where(Approval.workflow_execution_id == workflow_execution_id).order_by(Approval.created_at.desc())
+            select(Approval).where(Approval.workflow_execution_id == workflow_execution_id).order_by(Approval.created_at.desc()).limit(limit)
         )
         return list(result.scalars().all())
 
@@ -92,15 +96,17 @@ class EvaluationRepository(BaseRepository[Evaluation]):
     def __init__(self, session: AsyncSession):
         super().__init__(Evaluation, session)
 
-    async def list_by_run(self, run_id: UUID) -> List[Evaluation]:
+    async def list_by_run(self, run_id: UUID, limit: int = 500) -> List[Evaluation]:
         result = await self.session.execute(
-            select(Evaluation).where(Evaluation.run_id == run_id).order_by(Evaluation.created_at.desc())
+            select(Evaluation).where(Evaluation.run_id == run_id).order_by(Evaluation.created_at.desc()).limit(limit)
         )
         return list(result.scalars().all())
 
-    async def list_by_workflow_execution(self, workflow_execution_id: UUID) -> List[Evaluation]:
+    async def list_by_workflow_execution(
+        self, workflow_execution_id: UUID, limit: int = 500
+    ) -> List[Evaluation]:
         result = await self.session.execute(
-            select(Evaluation).where(Evaluation.workflow_execution_id == workflow_execution_id).order_by(Evaluation.created_at.desc())
+            select(Evaluation).where(Evaluation.workflow_execution_id == workflow_execution_id).order_by(Evaluation.created_at.desc()).limit(limit)
         )
         return list(result.scalars().all())
 

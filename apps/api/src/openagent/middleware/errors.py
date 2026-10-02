@@ -1,11 +1,13 @@
 import uuid
 from typing import Callable
-from fastapi import Request, Response, HTTPException
+
+import structlog
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-from pydantic import ValidationError
-import structlog
 
 from openagent.schemas.base import ApiError, ApiErrorResponse, ErrorDetail
 
@@ -26,6 +28,24 @@ ERROR_CODES = {
 }
 
 
+def request_id_for(request: Request) -> str:
+    """Single source of truth for the request id.
+
+    The correlation middleware stamps request.state; fall back to the
+    logging context, then to a fresh id (never reuse another request's).
+    """
+    state_id = getattr(request.state, "request_id", None)
+    if state_id:
+        return state_id
+    try:
+        ctx = structlog.contextvars.get_contextvars()
+        if ctx.get("request_id"):
+            return ctx["request_id"]
+    except Exception:
+        pass
+    return f"req_{uuid.uuid4().hex[:16]}"
+
+
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, is_development: bool = False):
         super().__init__(app)
@@ -42,7 +62,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             return self._handle_unexpected_error(request, e)
 
     def _handle_http_exception(self, request: Request, exc: HTTPException) -> JSONResponse:
-        request_id = getattr(request.state, "request_id", f"req_{uuid.uuid4().hex[:16]}")
+        request_id = request_id_for(request)
         status_code = exc.status_code
         code = self._get_error_code(status_code)
 
@@ -63,7 +83,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         return JSONResponse(status_code=status_code, content=ApiErrorResponse(error=error).model_dump())
 
     def _handle_validation_error(self, request: Request, exc: ValidationError) -> JSONResponse:
-        request_id = getattr(request.state, "request_id", f"req_{uuid.uuid4().hex[:16]}")
+        request_id = request_id_for(request)
 
         details = [
             ErrorDetail(field=".".join(str(x) for x in err["loc"]), code="VALIDATION_ERROR", message=err["msg"])
@@ -82,7 +102,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         return JSONResponse(status_code=422, content=ApiErrorResponse(error=error).model_dump())
 
     def _handle_unexpected_error(self, request: Request, exc: Exception) -> JSONResponse:
-        request_id = getattr(request.state, "request_id", f"req_{uuid.uuid4().hex[:16]}")
+        request_id = request_id_for(request)
 
         logger.error(
             "Unexpected error",
@@ -106,3 +126,31 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             if code_status == status_code:
                 return code
         return "INTERNAL_ERROR"
+
+
+def register_error_handlers(app: FastAPI, is_development: bool = False) -> None:
+    """Render EVERY error (including HTTPException raised in routes) as the
+    standard ApiError envelope with the request's correlation id.
+
+    This is required in addition to ErrorHandlingMiddleware because
+    FastAPI's internal ExceptionMiddleware converts HTTPException /
+    RequestValidationError into responses before they can reach user
+    middleware — without handlers, those common errors bypass the
+    standard shape entirely (plain {"detail": ...}, no request_id).
+    """
+    renderer = ErrorHandlingMiddleware(app, is_development=is_development)
+
+    async def _http_handler(request: Request, exc: HTTPException) -> JSONResponse:
+        return renderer._handle_http_exception(request, exc)
+
+    async def _validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        return renderer._handle_validation_error(request, exc)
+
+    async def _unexpected_handler(request: Request, exc: Exception) -> JSONResponse:
+        return renderer._handle_unexpected_error(request, exc)
+
+    app.add_exception_handler(HTTPException, _http_handler)
+    # RequestValidationError subclasses ValidationError; register both so
+    # nothing falls back to FastAPI's {"detail": ...} shape.
+    app.add_exception_handler(RequestValidationError, _validation_handler)
+    app.add_exception_handler(Exception, _unexpected_handler)

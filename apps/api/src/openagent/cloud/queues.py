@@ -99,8 +99,9 @@ def normalize_priority(*, requested: str, plan_allows_high: bool,
 
 
 # Non-retryable failure markers (§43). Matching is substring-based and
-# conservative: unknown errors default to retryable=False (never blindly
-# retry destructive actions).
+# conservative: errors matching a marker are never retried; UNKNOWN errors
+# default to retryable=True but are still capped by max_attempts and routed
+# to the dead-letter queue (never retried indefinitely).
 _NON_RETRYABLE_MARKERS = (
     "invalid workflow", "permission denied", "invalid credentials",
     "policy violation", "malicious", "schema validation",

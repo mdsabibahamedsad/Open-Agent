@@ -1,6 +1,9 @@
 import time
 import asyncio
-import psutil
+try:
+    import psutil
+except ImportError:  # optional: only SystemMetricsCollector needs it
+    psutil = None
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Callable, Awaitable
@@ -210,9 +213,14 @@ metrics = MetricsCollector()
 
 # System metrics collection
 class SystemMetricsCollector:
-    """Collects system-level metrics."""
-    
+    """Collects system-level metrics (requires the optional psutil package)."""
+
     def __init__(self):
+        if psutil is None:
+            raise RuntimeError(
+                "SystemMetricsCollector requires the optional 'psutil' "
+                "package, which is not installed."
+            )
         self._process = psutil.Process(os.getpid())
         self._last_cpu_times = None
         self._last_cpu_time = time.time()
@@ -269,8 +277,12 @@ class SystemMetricsCollector:
             collector.gauge(name, value)
 
 
-# Global system metrics collector
-system_metrics = SystemMetricsCollector()
+# Global system metrics collector (None when the optional psutil package
+# is unavailable — HTTP request metrics are unaffected).
+try:
+    system_metrics = SystemMetricsCollector()
+except RuntimeError:
+    system_metrics = None
 
 
 # Decorator for timing functions

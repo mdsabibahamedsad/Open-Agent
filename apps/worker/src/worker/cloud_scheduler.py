@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import signal
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -16,6 +17,13 @@ from datetime import datetime, timezone
 import structlog
 
 logger = structlog.get_logger("worker.cloud_scheduler")
+
+_shutdown = asyncio.Event()
+
+
+def _handle_signal(*_args: object) -> None:
+    logger.info("scheduler shutdown signal received")
+    _shutdown.set()
 
 
 async def _tick_once(owner_id: str, poll_seconds: int) -> None:
@@ -34,14 +42,28 @@ async def amain() -> None:
     owner_id = os.getenv("SCHEDULER_ID", f"scheduler_{uuid.uuid4().hex[:8]}")
     poll = int(os.getenv("SCHEDULER_POLL_SECONDS", "15"))
     logger.info("starting cloud scheduler", owner=owner_id)
-    while True:
+    try:
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, _handle_signal)
+            except NotImplementedError:
+                pass  # Windows: KeyboardInterrupt below still applies
+    except RuntimeError:
+        pass
+    while not _shutdown.is_set():
         try:
             await _tick_once(owner_id, poll)
         except asyncio.CancelledError:
             break
         except Exception as exc:
             logger.error("scheduler tick failed", error=str(exc))
-            await asyncio.sleep(poll)
+            try:
+                await asyncio.wait_for(_shutdown.wait(), timeout=poll)
+            except asyncio.TimeoutError:
+                continue
+            break
+    logger.info("cloud scheduler stopped", owner=owner_id)
 
 
 def main() -> None:

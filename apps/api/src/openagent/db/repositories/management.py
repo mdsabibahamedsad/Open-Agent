@@ -58,10 +58,11 @@ class AgentContractRepository(BaseRepository[AgentContract]):
         )
         return result.scalar_one_or_none()
 
-    async def list_by_task(self, task_id: UUID) -> List[AgentContract]:
+    async def list_by_task(self, task_id: UUID, limit: int = 500) -> List[AgentContract]:
         result = await self.session.execute(
             select(AgentContract).where(AgentContract.task_id == task_id)
             .order_by(AgentContract.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -97,10 +98,11 @@ class AgentCommitmentRepository(BaseRepository[AgentCommitment]):
     def __init__(self, session: AsyncSession):
         super().__init__(AgentCommitment, session)
 
-    async def list_by_task(self, task_id: UUID) -> List[AgentCommitment]:
+    async def list_by_task(self, task_id: UUID, limit: int = 500) -> List[AgentCommitment]:
         result = await self.session.execute(
             select(AgentCommitment).where(AgentCommitment.task_id == task_id)
             .order_by(AgentCommitment.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -136,10 +138,11 @@ class ReviewResultRepository(BaseRepository[ReviewResult]):
     def __init__(self, session: AsyncSession):
         super().__init__(ReviewResult, session)
 
-    async def list_by_task(self, task_id: UUID) -> List[ReviewResult]:
+    async def list_by_task(self, task_id: UUID, limit: int = 500) -> List[ReviewResult]:
         result = await self.session.execute(
             select(ReviewResult).where(ReviewResult.task_id == task_id)
             .order_by(ReviewResult.revision_number.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -207,10 +210,11 @@ class DynamicTeamRepository(BaseRepository[DynamicTeam]):
         )
         return result.scalar_one_or_none()
 
-    async def list_by_run(self, orchestration_run_id: UUID) -> List[DynamicTeam]:
+    async def list_by_run(self, orchestration_run_id: UUID, limit: int = 500) -> List[DynamicTeam]:
         result = await self.session.execute(
             select(DynamicTeam).where(DynamicTeam.orchestration_run_id == orchestration_run_id)
             .order_by(DynamicTeam.created_at.asc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -230,22 +234,23 @@ class DynamicTeamMembershipRepository(BaseRepository[DynamicTeamMembership]):
     def __init__(self, session: AsyncSession):
         super().__init__(DynamicTeamMembership, session)
 
-    async def list_by_team(self, team_id: UUID) -> List[DynamicTeamMembership]:
+    async def list_by_team(self, team_id: UUID, limit: int = 500) -> List[DynamicTeamMembership]:
         result = await self.session.execute(
             select(DynamicTeamMembership).where(DynamicTeamMembership.team_id == team_id)
             .order_by(DynamicTeamMembership.created_at.asc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
     async def list_by_agent(
-        self, organization_id: UUID, agent_id: UUID,
+        self, organization_id: UUID, agent_id: UUID, limit: int = 500,
     ) -> List[DynamicTeamMembership]:
         result = await self.session.execute(
             select(DynamicTeamMembership).where(
                 DynamicTeamMembership.organization_id == organization_id,
                 DynamicTeamMembership.agent_id == agent_id,
                 DynamicTeamMembership.status == "active",
-            )
+            ).limit(limit)
         )
         return list(result.scalars().all())
 
@@ -276,10 +281,11 @@ class PlanVersionRepository(BaseRepository[PlanVersion]):
     def __init__(self, session: AsyncSession):
         super().__init__(PlanVersion, session)
 
-    async def list_by_run(self, orchestration_run_id: UUID) -> List[PlanVersion]:
+    async def list_by_run(self, orchestration_run_id: UUID, limit: int = 500) -> List[PlanVersion]:
         result = await self.session.execute(
             select(PlanVersion).where(PlanVersion.orchestration_run_id == orchestration_run_id)
             .order_by(PlanVersion.version.asc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
