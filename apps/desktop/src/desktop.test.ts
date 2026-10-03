@@ -17,6 +17,11 @@ import {
   ToolRegistry,
 } from "@openagent/workflow-engine";
 import { engineStatus, writePidFile, clearPidFile } from "./lifecycle.js";
+import {
+  compareVersions,
+  detectInstallMode,
+  releaseTagToVersion,
+} from "./updates.js";
 
 function tmpDir(prefix: string): string {
   const d = path.join(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
@@ -98,6 +103,43 @@ describe("hello-ai first workflow", () => {
     });
     expect(rec.status).toBe("SUCCESS");
     fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+});
+
+describe("release updates (repo is source of truth, not npm)", () => {
+  it("normalizes release tags", () => {
+    expect(releaseTagToVersion("v1.2.3")).toBe("1.2.3");
+    expect(releaseTagToVersion("1.2.3")).toBe("1.2.3");
+    expect(releaseTagToVersion("v10.0.0-beta.1")).toBe("10.0.0-beta.1");
+    expect(releaseTagToVersion("latest")).toBeNull();
+    expect(releaseTagToVersion("")).toBeNull();
+  });
+  it("never offers a downgrade across version lines", () => {
+    expect(compareVersions("1.0.0", "1.0.0")).toBe(0);
+    expect(compareVersions("1.1.0", "1.0.0")).toBe(1);
+    expect(compareVersions("0.1.0", "1.0.0")).toBe(-1);
+    expect(compareVersions("2.0.0", "10.0.0")).toBe(-1);
+  });
+  it("detects a dev checkout by workspace file", () => {
+    // vitest runs with cwd = apps/desktop, so repo root is two levels up.
+    const repoRoot = path.resolve(process.cwd(), "..", "..");
+    expect(detectInstallMode(repoRoot)).toBe("dev");
+  });
+  it("detects an npm-global entrypoint", () => {
+    const fakeCwd = tmpDir("oa-mode-");
+    expect(
+      detectInstallMode(
+        fakeCwd,
+        "C:\\Users\\User\\.npm-global\\node_modules\\@openagent\\cli\\bin\\openagent.js",
+      ),
+    ).toBe("npm");
+    expect(
+      detectInstallMode(
+        fakeCwd,
+        "C:\\Users\\User\\AppData\\Local\\OpenAgent\\bin\\launcher.js",
+      ),
+    ).toBe("portable");
+    fs.rmSync(fakeCwd, { recursive: true, force: true });
   });
 });
 

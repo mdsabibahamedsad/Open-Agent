@@ -72,3 +72,6 @@ dist
 *.pem
 .vercel
 .netlify
+
+# Generated repo-local dev launcher (created by setup.cmd / setup.ps1)
+openagent-dev.cmd

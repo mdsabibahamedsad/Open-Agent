@@ -23,6 +23,27 @@ Build, orchestrate, automate, and deploy autonomous AI workforces.
 - [Usage](#usage)
 - [Project Structure](#project-structure)
 - [Development](#development)
+- [What Is OpenAgent?](#what-is-openagent)
+- [Product Vision](#product-vision)
+- [Comparison With Traditional Automation (n8n-style)](#comparison-with-traditional-automation-n8n-style)
+- [Core Capabilities](#core-capabilities)
+- [Security and Privacy](#security-and-privacy)
+- [Installation](#installation)
+- [First-Run Setup](#first-run-setup)
+- [CLI Reference](#cli-reference)
+- [Configuration](#configuration)
+- [AI Model Setup](#ai-model-setup)
+- [Browser Setup](#browser-setup)
+- [MCP Setup](#mcp-setup)
+- [Workflow Examples](#workflow-examples)
+- [Agent Examples](#agent-examples)
+- [Troubleshooting](#troubleshooting)
+- [Doctor, Repair, Update, Backup](#doctor-repair-update-backup)
+- [Git and GitHub Integration](#git-and-github-integration)
+- [Testing](#testing)
+- [Repository Structure and Architecture](#repository-structure-and-architecture)
+- [Release Process](#release-process)
+- [FAQ](#faq)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Security](#security)
@@ -114,7 +135,19 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full technical document.
 
 ## Quick Start
 
-Prerequisites: Git, Node.js 20+, pnpm 8.15+, Python 3.11+, Docker & Docker Compose.
+**Normal user (no tech setup):** download `OpenAgent-Setup.exe` from Releases,
+install, launch — first-run setup is automatic. Details: [INSTALLATION](docs/INSTALLATION.md).
+
+**Developer:**
+
+```cmd
+git clone https://github.com/mdsabibahamedsad/Open-Agent.git
+cd Open-Agent
+setup.cmd
+openagent-dev.cmd doctor
+```
+
+Prerequisites (developer mode only): Git, Node.js 20+, pnpm 8.15+, Python 3.11+, Docker & Docker Compose.
 Run `pnpm doctor` at any time to verify your machine. Full guides: [quick-start](docs/getting-started/quick-start.md) · [Windows](docs/getting-started/windows.md) · [macOS](docs/getting-started/macos.md) · [Linux](docs/getting-started/linux.md) · [troubleshooting](docs/getting-started/troubleshooting.md).
 
 ```bash
@@ -296,7 +329,7 @@ Open-Agent/
 └── LICENSE (MIT)
 ```
 
-`apps/desktop/` and `apps/docs/` exist as empty placeholders for planned work.
+`apps/desktop/` holds the desktop controller (lifecycle, supervision, updates, first-run wizard); `apps/docs/` hosts the documentation site.
 
 ## Development
 
@@ -348,6 +381,242 @@ pnpm test          # all workspace tests
 cd apps/api && pytest -q
 cd apps/web && npx tsc --noEmit
 ```
+
+## What Is OpenAgent?
+
+OpenAgent is designed as an AI-native automation platform: deterministic
+workflow structure where you need repeatability, plus AI agents that can
+reason, plan, use tools, observe results, correct course, and remember —
+all local-first, behind policy, approvals, sandboxing, and audit logging.
+
+## Product Vision
+
+Automation that starts from a **goal**, not a blank canvas:
+
+```text
+Traditional node-based automation:
+
+Trigger → Node → Node → Node → Output
+(fixed path; every branch drawn by hand)
+
+OpenAgent's model:
+
+Goal → AI reasoning → tool discovery → workflow planning
+→ execution → observation → correction → memory → final result
+(deterministic nodes where it matters; agents where judgment matters)
+```
+
+Compared with traditional node-based automation, OpenAgent focuses more
+heavily on agent behavior (planning, tool use, recovery) while keeping
+workflows as the durable, auditable substrate. Potential advantages include
+faster builds from natural language, self-recovery at runtime, and local
+execution without forced cloud dependence. Trade-offs include less
+step-by-step predictability when agents act autonomously, and higher local
+compute needs for capable models — which is why approvals, budgets, and the
+human-readable execution log exist.
+
+## Comparison With Traditional Automation (n8n-style)
+
+| Capability | Traditional node automation (e.g. n8n) | OpenAgent |
+|---|---|---|
+| Visual workflows | Implemented, mature | Implemented (`apps/web` builder + versioned definitions) |
+| AI agents | Add-on nodes | Implemented (first-class runtime, runs, budgets) |
+| MCP | Varies by version | Implemented (servers, tools, resources, CLI mgmt) |
+| Local-first execution | Usually server/cloud-oriented | Implemented (SQLite/JSON engine, no Docker needed) |
+| CLI | Limited or none | Implemented (full `openagent` CLI, any directory) |
+| Desktop app | Usually none | In Progress (controller + Windows installer; no Electron shell) |
+| Browser automation | Varies | Implemented (Playwright engine, CLI-managed) |
+| Memory | Varies | Implemented (scoped persistent memory + search) |
+| Plugin system | Mature registries | Implemented (registry, `.oaext` packages, marketplace) |
+| Deployment | Self-host/cloud | In Progress (installer + portable + Docker; cloud planned) |
+
+Status labels above reflect this repository. OpenAgent is not claimed to
+match any other product feature-for-feature.
+
+## Core Capabilities
+
+- **AI workflow automation** — versioned DAG definitions, schedules, approvals, quality gates; generate from prompts (`openagent workflow generate "…"`) or build visually.
+- **AI agents** — `openagent agent create --name X`, `agent run <id> --input …`; models, system prompts, tools, memory, iteration budgets.
+- **Autonomous execution** — `openagent autonomous "goal" --max-steps 10`: plan → act → observe → retry, ending with `FINAL:`.
+- **MCP** — `openagent mcp {list,add,remove,test,doctor}` against local `.openagent/mcp.json` or server catalog.
+- **Browser automation** — `openagent browser {doctor,install,update}`; Playwright Chromium managed for you.
+- **Local AI** — `openagent model {detect,list,install,use,doctor}`; Ollama auto-detected, hardware profile (LOW/BALANCED/POWER) picks the default model; cloud via `OPENAI_API_KEY`, hybrid supported.
+- **Cloud AI** — OpenAI-compatible endpoints through the model router; keys stay in local config, never in source.
+- **Memory** — `openagent memory {get,set,search}`; scoped, persistent, file-backed.
+- **Multi-agent architecture** — managers, delegation, handoffs, budgets (see `docs/multi-agent-architecture.md`).
+- **Workflow engine** — `packages/workflow-engine`: validation, execution, retries, schedules, artifacts.
+- **CLI** — full reference in [docs/CLI.md](docs/CLI.md); works from any directory.
+- **Desktop application** — Node controller (`apps/desktop`: lifecycle, supervisor, health, updates, first-run) + Windows installer; opens the dashboard after health checks, shows diagnostics instead of a blank window on backend failure.
+- **Plugin system** — `.oaext` deterministic packages (`openagent package`, `inspect`), local registry, marketplace listings.
+- **Developer SDK** — TypeScript (`packages/sdk`), Python (`packages/python-sdk`), extension SDK builders, REST API + stable `api-client`.
+- **API** — FastAPI (`apps/api`), versioned routes, auto docs at `/docs` in development.
+
+## Security and Privacy
+
+Local-first: workflows, agents, memory, and credentials live under
+`%LOCALAPPDATA%\OpenAgent\data` (or `OPENAGENT_DATA_DIR`), never in the repo.
+Secret scanning blocks publishes and auto-pushes; logs redact credentials;
+`.gitignore` rules are generated by `openagent git --init`. See
+[SECURITY.md](SECURITY.md) and [docs/GIT.md](docs/GIT.md).
+
+## Installation
+
+**Normal user:** download `OpenAgent-Setup.exe` from GitHub Releases →
+install (per-user, no admin) → launch. First-run wizard: system check →
+hardware → AI provider (Local / Cloud / Both / Skip) → workspace → browser →
+optional Git → complete. Full guide: [docs/INSTALLATION.md](docs/INSTALLATION.md),
+[docs/WINDOWS.md](docs/WINDOWS.md).
+
+**Developer:**
+
+```cmd
+git clone https://github.com/mdsabibahamedsad/Open-Agent.git
+cd Open-Agent
+setup.cmd
+openagent-dev.cmd doctor
+```
+
+**Portable:** extract `OpenAgent-Portable.zip`, run `bin\openagent.cmd start`.
+No global installation of anything. The npm package (`@openagent/cli`) is
+optional and developer-only — and only after it is actually published.
+
+## First-Run Setup
+
+`openagent setup` (flags: `--dev`, `--production`, `--minimal`, `--offline`,
+`--yes`, `--ai-mode`, `--model`, `--start`) performs system check, port
+selection, runtime layout, AI/browser configuration, and a success test
+(a real `hello-ai` workflow execution). Re-run any time; `--offline` names
+exactly what cannot be installed without internet.
+
+## CLI Reference
+
+```cmd
+openagent setup | start | stop | restart | status
+openagent doctor [--fix] | openagent repair
+openagent logs [--tail [n]] [--open] | openagent config {list,get,set}
+openagent workflow | agent | node | mcp | memory | schedule
+openagent model {detect,list,install,use,doctor}
+openagent browser {doctor,install,update}
+openagent db {status,migrate,reset}
+openagent backup create | openagent restore [id] | openagent reset
+openagent update [--apply] | openagent version
+openagent git {status,remote,connect,auth,enable-auto-sync,disable-auto-sync,sync}
+```
+
+Details: [docs/CLI.md](docs/CLI.md). Every command is real — anything not
+implemented reports `NOT IMPLEMENTED` instead of faking success.
+
+## Configuration
+
+`.env.example` is committed; `.env` is generated by setup (never overwritten,
+never committed). `OPENAGENT_DATA_DIR`, `OPENAGENT_PORT`, provider keys, and
+per-project `.openagent/config.json` cover the rest. Ports roll forward
+automatically when busy and persist to config.
+
+## AI Model Setup
+
+```cmd
+openagent model detect    # Ollama / LM Studio / OPENAI_API_KEY, + HW profile
+openagent model install   # pulls the recommended model (asks first for large ones)
+openagent model use ollama:qwen2.5
+openagent model doctor
+```
+
+## Browser Setup
+
+```cmd
+openagent browser doctor
+openagent browser install   # Playwright Chromium, no manual steps
+```
+
+## MCP Setup
+
+```cmd
+openagent mcp add my-server --transport stdio --command my-mcp-server
+openagent mcp test my-server
+openagent mcp doctor
+```
+
+## Workflow Examples
+
+```cmd
+openagent init --yes --name demo --kind tool --language ts .
+openagent workflow generate "when a webhook arrives, summarize with AI, save to file" --run
+openagent workflow run daily-news-digest
+openagent ask "run my daily-news-digest workflow" --run
+```
+
+## Agent Examples
+
+```cmd
+openagent agent create --name researcher --model ollama:qwen2.5
+openagent agent run <id> --input '{"goal":"summarize today"}'
+openagent autonomous "triage the inbox" --max-steps 10
+openagent memory set tone concise
+```
+
+## Troubleshooting
+
+Start with `openagent doctor` (repair with `--fix`), then `openagent repair`,
+then `openagent logs --tail`. Common cases: CLI not found (restart terminal;
+never install the `openagent` placeholder package), port busy (auto-rolls),
+Ollama missing (`openagent model install`), browser missing
+(`openagent browser install`). Full guide: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+
+## Doctor, Repair, Update, Backup
+
+- `openagent doctor` checks OS/CPU/RAM/runtime/Node/npm/Git/CLI/PATH/database/ports/filesystem/browser/AI/MCP/backend/frontend/engine/memory/plugins/GitHub-auth/disk with ✓/!/✗ and fixes.
+- `openagent repair` recreates dirs, validates config (corrupt files preserved as `*.corrupt`), clears stale pids/cache — never deletes workflows without confirmation.
+- `openagent update` compares against GitHub releases (npm only as fallback), snapshots data, verifies checksums, migrates, health-checks, rolls back on failure.
+- `openagent backup create` / `openagent restore <id>` cover workflows, agents, settings, database, plugin config; secrets stay encrypted.
+
+## Git and GitHub Integration
+
+Optional, auto-sync OFF by default. `openagent git status` (read-only),
+`--init`, `remote` (never overwrites), `connect <url>` (refuses overwrite
+without `--force`), `auth` (gh/SSH/credential-manager guidance),
+`enable-auto-sync` / `disable-auto-sync`, `sync` (secret scan → typecheck →
+tests → build → commit generated from actual files → plain push, never
+`--force`). Any failure stops before commit/push. Details: [docs/GIT.md](docs/GIT.md).
+
+## Testing
+
+```bash
+pnpm typecheck        # all packages
+pnpm lint
+pnpm test             # unit (vitest) + API (pytest)
+pnpm test:unit
+pnpm test:integration
+```
+
+The CLI package adds `test` (vitest, incl. secret-scan/packaging/local-engine
+suites) and the desktop package covers lifecycle + update-channel logic.
+E2E paths exercised in CI and release validation: setup → doctor → workflow
+run → agent run → backup/restore → update check → git sync gates.
+
+## Repository Structure and Architecture
+
+See [Project Structure](#project-structure) above and
+[ARCHITECTURE.md](ARCHITECTURE.md). One core engine
+(`packages/workflow-engine` + providers/tools/memory) serves the CLI, the
+desktop controller, the FastAPI backend, and the Next.js frontend — no
+parallel implementations.
+
+## Release Process
+
+`node scripts/version.mjs` (single version source) →
+`scripts/release-check.mjs` → `npm run package:windows`
+(`openagent-win-x64.zip` + `.sha256`, NSIS staging, `OpenAgent-Setup.exe` via
+`makensis`) → GitHub release with checksums → `openagent update` serves it.
+`npm pack` in `packages/cli` validates the optional npm artifact (bin + dist).
+
+## FAQ
+
+**Do I need Node.js?** Only for developer mode. Normal install bundles its runtime.
+**Do I need Docker/PostgreSQL?** No — SQLite + embedded queue by default; Docker is for full-stack development.
+**Which `openagent` npm package?** `@openagent/cli` (developers only, after publication). The bare `openagent` name is an unrelated placeholder — never install it.
+**Where is my data?** `%LOCALAPPDATA%\OpenAgent\data` (preserved across updates/uninstalls).
+**How do I update?** `openagent update --apply`, or re-run `OpenAgent-Setup.exe`.
 
 ## Roadmap
 

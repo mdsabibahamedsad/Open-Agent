@@ -1537,8 +1537,75 @@ export function registerCommands(program: Command): void {
     .command("logs")
     .description("List recent runs (server, or local .openagent/executions)")
     .option("--limit <n>", "max items", "50")
-    .action(async (opts: Record<string, string>, cmd: Command) => {
+    .option("--tail [n]", "tail local log files (default 50 lines)")
+    .option("--file <name>", "log file to tail (default: all)")
+    .option("--open", "open the logs directory in the file manager")
+    .action(async (opts: Record<string, string | boolean>, cmd: Command) => {
       const out = outFrom(program, cmd);
+      if (opts.open) {
+        const { getAppDirs } = await import("@openagent/workflow-engine");
+        const dir = getAppDirs().logs;
+        fs.mkdirSync(dir, { recursive: true });
+        const opener =
+          process.platform === "win32"
+            ? "explorer.exe"
+            : process.platform === "darwin"
+              ? "open"
+              : "xdg-open";
+        const { execFile: ef } = await import("node:child_process");
+        await new Promise<void>((resolve) => {
+          ef(opener, [dir], () => resolve());
+        });
+        okLine(`Opened logs directory: ${dir}`, out);
+        return;
+      }
+      if (opts.tail !== undefined) {
+        const { getAppDirs } = await import("@openagent/workflow-engine");
+        const n =
+          typeof opts.tail === "string" && opts.tail.trim() !== ""
+            ? Number(opts.tail) || 50
+            : 50;
+        const logDirs = [
+          getAppDirs().logs,
+          path.join(
+            findProjectDir() ?? globalWorkspaceDir(),
+            ".openagent",
+            "logs",
+          ),
+        ];
+        const wanted =
+          typeof opts.file === "string" ? opts.file.toLowerCase() : null;
+        const lines: string[] = [];
+        for (const d of logDirs) {
+          if (!fs.existsSync(d)) continue;
+          for (const f of fs.readdirSync(d)) {
+            if (!f.endsWith(".log")) continue;
+            if (wanted && !f.toLowerCase().includes(wanted)) continue;
+            const content = fs
+              .readFileSync(path.join(d, f), "utf8")
+              .split("\n")
+              .filter(Boolean);
+            for (const l of content.slice(-n)) lines.push(`[${f}] ${l}`);
+          }
+        }
+        if (lines.length === 0) {
+          okLine("No local log files yet.", out);
+          return;
+        }
+        // Secrets are never written to these logs by OpenAgent; still,
+        // redact anything that looks like a credential before printing.
+        printResult(
+          lines
+            .slice(-n)
+            .join("\n")
+            .replace(
+              /((?:api[_-]?key|token|secret|password)\s*[:=]\s*)([^\s]+)/gi,
+              "$1***",
+            ),
+          out,
+        );
+        return;
+      }
       try {
         const org = ensureOrg(out);
         void org;
@@ -1816,9 +1883,21 @@ export function registerCommands(program: Command): void {
         // Windows CLI installation diagnostics (global prefix/bin/PATH).
         const gi = await getNpmGlobalInfo();
         checks.push({
+          name: "npm version",
+          ok: Boolean(gi.npmVersion),
+          detail: gi.npmVersion
+            ? `npm ${gi.npmVersion}`
+            : "npm version unknown",
+        });
+        checks.push({
           name: "npm prefix",
           ok: true,
-          detail: `${gi.prefix} (npm ${gi.npmVersion ?? "unknown"})`,
+          detail: gi.prefix,
+        });
+        checks.push({
+          name: "npm global bin",
+          ok: true,
+          detail: gi.binDir,
         });
         checks.push({
           name: "openagent executable",
@@ -1863,6 +1942,64 @@ export function registerCommands(program: Command): void {
         if (gi.installDir) {
           checks.push({ name: "install dir", ok: true, detail: gi.installDir });
         }
+        // Installed package version + runtime entrypoint + host identity.
+        // Required so `openagent doctor` is self-diagnosing on any machine.
+        try {
+          let cliVersion = "unknown";
+          for (const base of [
+            path.join(path.dirname(process.argv[1] ?? ""), ".."),
+            process.cwd(),
+          ]) {
+            for (const candidate of [
+              path.join(base, "package.json"),
+              path.join(base, "..", "package.json"),
+            ]) {
+              try {
+                const raw = fs.readFileSync(candidate, "utf8");
+                const pkg = JSON.parse(raw) as {
+                  name?: string;
+                  version?: string;
+                };
+                if (
+                  pkg.version &&
+                  (pkg.name === "@openagent/cli" || pkg.name === "openagent")
+                ) {
+                  cliVersion = `${pkg.name}@${pkg.version}`;
+                  break;
+                }
+              } catch {
+                // keep searching
+              }
+            }
+            if (cliVersion !== "unknown") break;
+          }
+          checks.push({
+            name: "openagent version",
+            ok: cliVersion !== "unknown",
+            detail: cliVersion,
+          });
+        } catch {
+          checks.push({
+            name: "openagent version",
+            ok: false,
+            detail: "unknown",
+          });
+        }
+        checks.push({
+          name: "CLI entrypoint",
+          ok: true,
+          detail: process.argv[1] ?? "(unknown)",
+        });
+        checks.push({
+          name: "platform",
+          ok: true,
+          detail: process.platform,
+        });
+        checks.push({
+          name: "arch",
+          ok: true,
+          detail: process.arch,
+        });
         if (!out.quiet && !out.json) {
           process.stdout.write("\nOpenAgent Doctor\n\n");
           for (const c of checks) {
@@ -1886,31 +2023,23 @@ export function registerCommands(program: Command): void {
     .action(async (_o: unknown, cmd: Command) => {
       const out = outFrom(program, cmd);
       const current = "1.0.0";
-      let latest = current;
-      try {
-        const res = await fetch(
-          "https://registry.npmjs.org/@openagent%2Fcli/latest",
-          { signal: AbortSignal.timeout(8000) },
-        );
-        if (res.ok) {
-          const j = (await res.json()) as { version?: string };
-          if (j.version) latest = j.version;
-        }
-      } catch {
-        // offline: report hint only
-      }
-      if (latest !== current) {
+      const { checkForUpdates: checkUpdates } =
+        await import("@openagent/desktop");
+      const info = await checkUpdates("@openagent/cli", current);
+      if (info.available) {
         printResult(
           {
             current,
-            latest,
-            hint: "Run `npm i -g @openagent/cli@latest` or `pnpm add -g @openagent/cli@latest` to upgrade.",
+            latest: info.latest,
+            source: info.source,
+            hint: "Run `openagent update --apply`, or download OpenAgent-Setup.exe from the GitHub releases page.",
           },
           out,
         );
       } else {
         okLine(`openagent CLI is up to date (${current}).`, out);
-        if (out.json) printResult({ current, latest }, { ...out, json: true });
+        if (out.json)
+          printResult({ current, latest: info.latest }, { ...out, json: true });
       }
     });
 

@@ -5,9 +5,10 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "openagent": "./dist/bin/openagent.cjs"
+    "openagent": "./bin/openagent.js"
   },
   "files": [
+    "bin/",
     "dist/",
     "README.md",
     "LICENSE"

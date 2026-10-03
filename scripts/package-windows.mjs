@@ -35,8 +35,38 @@ fs.rmSync(path.join(dist, "windows-portable"), {
 });
 fs.mkdirSync(deployDir, { recursive: true });
 sh(`pnpm --filter @openagent/cli --prod deploy "${deployDir}"`);
+pruneDeployedTree(deployDir);
 repairDeployedTree(deployDir);
 smokeTestCli(deployDir);
+
+/**
+ * Strip development-only files from the deployed tree so the portable
+ * payload stays small and contains no source maps of tests or configs.
+ */
+function pruneDeployedTree(cliDir) {
+  let removed = 0;
+  for (const rel of ["src", ".turbo", "tsconfig.json", "scripts"]) {
+    const p = path.join(cliDir, rel);
+    if (fs.existsSync(p)) {
+      fs.rmSync(p, { recursive: true, force: true });
+      removed++;
+    }
+  }
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name === "node_modules") continue;
+        walk(p);
+      } else if (/\.test\.(js|d\.ts|d\.ts\.map)$/.test(e.name)) {
+        fs.rmSync(p, { force: true });
+        removed++;
+      }
+    }
+  };
+  if (fs.existsSync(path.join(cliDir, "dist"))) walk(path.join(cliDir, "dist"));
+  console.log(`pruned ${removed} dev-only file(s)/dir(s) from portable tree`);
+}
 
 /**
  * pnpm deploy materializes symlinks as plain directories on Windows, which
@@ -82,7 +112,8 @@ function repairDeployedTree(cliDir) {
 }
 
 function smokeTestCli(cliDir) {
-  const bin = path.join(cliDir, "dist", "bin", "openagent.js");
+  // Self-contained esbuild bundle (no workspace source needed at runtime).
+  const bin = path.join(cliDir, "dist", "bin", "openagent.cjs");
   const out = execFileSync(process.execPath, [bin, "--version"], {
     encoding: "utf8",
     timeout: 60000,
@@ -104,7 +135,7 @@ fs.cpSync(
     recursive: true,
   },
 );
-const shim = `@echo off\r\nsetlocal\r\nset OA_NODE=%~dp0..\\runtime\\node\\node.exe\r\nif not exist "%OA_NODE%" set OA_NODE=node\r\n"%OA_NODE%" "%~dp0..\\app\\cli\\dist\\bin\\openagent.js" %*\r\n`;
+const shim = `@echo off\r\nsetlocal\r\nset OA_NODE=%~dp0..\\runtime\\node\\node.exe\r\nif not exist "%OA_NODE%" set OA_NODE=node\r\n"%OA_NODE%" "%~dp0..\\app\\cli\\dist\\bin\\openagent.cjs" %*\r\n`;
 fs.mkdirSync(path.join(portable, "bin"), { recursive: true });
 fs.writeFileSync(path.join(portable, "bin", "openagent.cmd"), shim);
 fs.writeFileSync(

@@ -3,6 +3,7 @@ import { Command } from "commander";
 import pc from "picocolors";
 import { registerCommands } from "../commands.js";
 import { registerLocalCommands, printWelcome } from "../localCommands.js";
+import { registerOpsCommands } from "../opsCommands.js";
 import { findProjectDir } from "../local.js";
 import { OpenAgentError } from "../http.js";
 
@@ -23,6 +24,7 @@ program
 
 registerCommands(program);
 registerLocalCommands(program);
+registerOpsCommands(program);
 
 program.action(() => {
   if (!findProjectDir()) {

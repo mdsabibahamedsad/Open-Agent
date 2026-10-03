@@ -112,7 +112,7 @@ if ($payload -and (Test-Path $payload)) {
 # ---------- 3. openagent shim (bundled runtime first, system node fallback) ----------
 Write-Step "Configure command shim"
 $bundledNode = Join-Path $AppDir "runtime\node\node.exe"
-$cliJs = Join-Path $AppDir "app\cli\dist\bin\openagent.js"
+$cliJs = Join-Path $AppDir "app\cli\dist\bin\openagent.cjs"
 $shimBody = "@echo off`r`n" +
   "setlocal`r`n" +
   "set OA_NODE=$bundledNode`r`n" +
@@ -120,7 +120,7 @@ $shimBody = "@echo off`r`n" +
   '"%OA_NODE%" "' + $cliJs + '" %*`r`n'
 # Fallback when the payload layout is absent (running from a repo checkout):
 if (-not (Test-Path $cliJs)) {
-  $repoCli = Join-Path $PSScriptRoot "..\..\packages\cli\dist\bin\openagent.js"
+  $repoCli = Join-Path $PSScriptRoot "..\..\packages\cli\dist\bin\openagent.cjs"
   if (Test-Path $repoCli) { $cliJs = (Resolve-Path $repoCli).Path }
   $shimBody = "@echo off`r`n" +
     "setlocal`r`n" +

@@ -119,6 +119,22 @@ export function registerLocalCommands(program: Command): void {
       const out = flagsOf(program, cmd);
       void out;
       const projectDir = requireProjectDir();
+      // Never orphan an engine: a second `start` reports the running one
+      // instead of overwriting its pid file with a duplicate process.
+      if (!opts.supervisedChild) {
+        const { engineStatus: engStatus } = await import("@openagent/desktop");
+        const cur = await engStatus(path.join(projectDir, ".openagent")).catch(
+          () => ({ running: false as const }),
+        );
+        if (cur.running) {
+          process.stdout.write(
+            `OpenAgent already running (pid ${cur.pid}, port ${cur.port}).\n` +
+              `Dashboard → http://localhost:${cur.port}\n` +
+              `Stop with: openagent stop\n`,
+          );
+          return;
+        }
+      }
       const { findFreePort } = await import("@openagent/workflow-engine");
       const { projectPort: projPort } = await import("./local.js");
       const preferred = opts.port ? Number(opts.port) : projPort(projectDir);
@@ -281,6 +297,9 @@ export function registerLocalCommands(program: Command): void {
     )
     .option("--yes", "non-interactive; accept all defaults")
     .option("--offline", "skip anything requiring internet")
+    .option("--dev", "developer profile (full local toolchain)")
+    .option("--production", "production profile (no dev extras)")
+    .option("--minimal", "minimal profile (skip runtime, AI, model, browser)")
     .option("--skip-runtime", "skip embedded runtime install")
     .option("--skip-ai", "skip AI runtime setup")
     .option("--skip-model", "skip model download")
@@ -293,14 +312,15 @@ export function registerLocalCommands(program: Command): void {
     .action(async (opts: Record<string, string | boolean>, cmd: Command) => {
       const out = flagsOf(program, cmd);
       if (opts.yes) process.env.OPENAGENT_YES = "1";
+      const minimal = opts.minimal === true;
       const { runSetup } = await import("./setup.js");
       const report = await runSetup({
         yes: opts.yes === true,
         offline: opts.offline === true,
-        skipRuntime: opts.skipRuntime === true,
-        skipAi: opts.skipAi === true,
-        skipModel: opts.skipModel === true,
-        skipBrowser: opts.skipBrowser === true,
+        skipRuntime: opts.skipRuntime === true || minimal,
+        skipAi: opts.skipAi === true || minimal,
+        skipModel: opts.skipModel === true || minimal,
+        skipBrowser: opts.skipBrowser === true || minimal,
         model: typeof opts.model === "string" ? opts.model : undefined,
         profile:
           typeof opts.profile === "string"
@@ -313,6 +333,14 @@ export function registerLocalCommands(program: Command): void {
         dataDir: typeof opts.dataDir === "string" ? opts.dataDir : undefined,
       });
       emit(report, { ...out, json: true });
+      const mode = minimal
+        ? "minimal"
+        : opts.dev === true
+          ? "dev"
+          : opts.production === true
+            ? "production"
+            : "default";
+      ok(`Setup complete (mode: ${mode}).`, out);
       if (opts.start) {
         const { spawn } = await import("node:child_process");
         const { writePidFile } = await import("@openagent/desktop");
@@ -805,27 +833,18 @@ export function registerLocalCommands(program: Command): void {
         emit(res, { ...out, json: true });
         return;
       }
-      let latest = current;
-      try {
-        const res = await fetch(
-          "https://registry.npmjs.org/@openagent%2Fcli/latest",
-          {
-            signal: AbortSignal.timeout(8000),
-          },
-        );
-        if (res.ok) {
-          const j = (await res.json()) as { version?: string };
-          if (j.version) latest = j.version;
-        }
-      } catch {
-        // offline
-      }
-      if (latest !== current) {
+      // Source of truth: GitHub releases (npm is only a fallback mirror).
+      const { checkForUpdates } = await import("@openagent/desktop");
+      const info = await checkForUpdates("@openagent/cli", current);
+      if (info.available) {
         emit(
           {
             current,
-            latest,
-            hint: "Workflows are stored as JSON in .openagent/ and are never touched by updates. Run `npm i -g @openagent/cli@latest`.",
+            latest: info.latest,
+            source: info.source,
+            hint:
+              "Workflows are stored as JSON in .openagent/ and are never touched by updates. " +
+              "Update with `openagent update --apply`, or download OpenAgent-Setup.exe from the GitHub releases page.",
           },
           out,
         );

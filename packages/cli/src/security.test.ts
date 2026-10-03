@@ -43,6 +43,21 @@ describe("security scan", () => {
     ).toBe(true);
   });
 
+  it("skips generated and cache directories", () => {
+    const dir = makeTmp();
+    for (const d of [".pytest_cache", "__pycache__", ".ruff_cache", "dist"]) {
+      fs.mkdirSync(path.join(dir, d), { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, d, "cached.py"),
+        `key = "AKIAIOSFODNN7EXAMPLE"\n`,
+      );
+    }
+    const res = scanDirectory(dir);
+    expect(res.findings).toEqual([]);
+    expect(res.blocksPublish).toBe(false);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   it("passes clean code", () => {
     const dir = makeTmp();
     fs.writeFileSync(

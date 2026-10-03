@@ -141,10 +141,18 @@ const SKIP_DIRS = new Set([
   "node_modules",
   ".git",
   "dist",
+  "build",
+  ".next",
+  "out",
   ".venv",
+  "venv",
   "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".ruff_cache",
   ".turbo",
   "coverage",
+  "htmlcov",
 ]);
 const SKIP_EXTS = new Set([
   ".oaext",

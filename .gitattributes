@@ -1,0 +1,10 @@
+# Cross-platform line-ending rules (autocrlf-proof).
+# CLI entrypoints must keep LF so the #!/usr/bin/env node shebang survives
+# checkout on Windows; batch files need CRLF.
+packages/cli/bin/openagent.js text eol=lf
+packages/cli/dist/bin/openagent.cjs text eol=lf
+setup.ps1 text eol=lf
+tools/installer/windows/*.ps1 text eol=lf
+setup.cmd text eol=crlf
+openagent-dev.cmd text eol=crlf
+tools/installer/windows/*.cmd text eol=crlf
