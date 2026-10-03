@@ -13,6 +13,40 @@ export interface WorkflowTemplate {
 
 export const TEMPLATES: WorkflowTemplate[] = [
   {
+    id: "hello-ai",
+    name: "Hello AI",
+    description:
+      "Built-in first-run check: manual trigger → AI agent → output.",
+    build: () => ({
+      id: `wf_${Date.now()}`,
+      name: "Hello AI",
+      version: 1,
+      nodes: [
+        { id: "trigger", type: "manual", position: pos(100, 100), config: {} },
+        {
+          id: "agent",
+          type: "ai-agent",
+          position: pos(350, 100),
+          config: {
+            model: "ollama:qwen2.5",
+            goal: "Say hello to the user and confirm you are ready. Input: {{input}}",
+            maxIterations: 2,
+          },
+        },
+        {
+          id: "output",
+          type: "text",
+          position: pos(600, 100),
+          config: { text: "{{input}}" },
+        },
+      ],
+      edges: [
+        { source: "trigger", target: "agent" },
+        { source: "agent", target: "output" },
+      ],
+    }),
+  },
+  {
     id: "daily-news-digest",
     name: "Daily News Digest",
     description: "Search AI news, summarize top stories, save to a file.",

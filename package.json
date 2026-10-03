@@ -35,6 +35,7 @@
     "docker:restart": "docker compose restart",
     "clean": "node scripts/clean.mjs",
     "clean:all": "node scripts/clean.mjs --all",
+    "package:windows": "node scripts/package-windows.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md,yml,yaml}\""
   },

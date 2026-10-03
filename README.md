@@ -156,6 +156,14 @@ openagent init
 openagent start
 ```
 
+**Windows, zero terminal:** download `OpenAgent-Setup.exe` from
+[releases](https://github.com/mdsabibahamedsad/Open-Agent/releases),
+double-click, click **Install OpenAgent** — runtime, database, local AI,
+browser, shortcuts, health check and dashboard are all configured
+automatically. Full guide: [one-click Windows install](docs/getting-started/windows-one-click.md).
+`openagent setup --yes` performs the same flow from a shell
+(`--offline` and `--skip-model` supported).
+
 Then you get:
 
 ```text

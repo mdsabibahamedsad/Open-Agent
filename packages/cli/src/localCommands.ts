@@ -1,9 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import prompts from "prompts";
 import type { Command } from "commander";
 import {
+  createProjectBackup,
   createSchedule,
   deleteSchedule,
+  deleteWorkflowLocal,
   findProjectDir,
   getWorkflowLocal,
   initProject,
@@ -13,6 +16,7 @@ import {
   listInstalledNodes,
   listMcpServers,
   listNodesLocal,
+  listProjectBackups,
   listSchedules,
   listWorkflowsLocal,
   memoryGet,
@@ -21,10 +25,10 @@ import {
   persistExecution as _persist,
   projectPort,
   requireProjectDir,
+  restoreProjectBackup,
   runAgentLocal,
   runWorkflowLocal,
   saveWorkflowLocal,
-  deleteWorkflowLocal,
   scaffoldNode,
   startLocalPlatform,
   addMcpServer,
@@ -97,18 +101,244 @@ function parseInput(raw?: string): unknown {
 
 /** Local-first commands required by the OpenAgent spec (no server needed). */
 export function registerLocalCommands(program: Command): void {
-  // ---------- start ----------
+  // ---------- start / stop / restart / status ----------
   program
     .command("start")
     .description("Start the OpenAgent platform (API, scheduler, dashboard)")
     .option("--port <port>", "port to listen on")
     .option("--no-open", "do not open the browser automatically")
+    .option("--safe", "safe mode: core + database + UI only")
+    .option("--daemon", "run detached in the background")
+    .option("--supervise", "run under the auto-recovery supervisor")
+    .option(
+      "--supervised-child",
+      "internal: this process is a supervised engine child",
+    )
     .action(async (opts: Record<string, string | boolean>, cmd: Command) => {
       const out = flagsOf(program, cmd);
       void out;
       const projectDir = requireProjectDir();
-      const port = opts.port ? Number(opts.port) : undefined;
-      await startLocalPlatform(projectDir, { port, open: opts.open !== false });
+      const { findFreePort } = await import("@openagent/workflow-engine");
+      const { projectPort: projPort } = await import("./local.js");
+      const preferred = opts.port ? Number(opts.port) : projPort(projectDir);
+      if (opts.supervise) {
+        const { Supervisor } = await import("@openagent/desktop");
+        const sup = new Supervisor({
+          dataDir: path.join(projectDir, ".openagent"),
+          projectDir,
+          preferredPort: preferred,
+          safeMode: opts.safe === true,
+          openBrowser: opts.open !== false,
+          engineCommand: (port: number, safe: boolean) => ({
+            cmd: process.execPath,
+            args: [
+              process.argv[1],
+              "start",
+              "--port",
+              String(port),
+              ...(opts.open === false ? ["--no-open"] : []),
+              ...(safe ? ["--safe"] : []),
+              "--supervised-child",
+            ],
+          }),
+          onEvent: (m) => process.stdout.write(`[supervisor] ${m}\n`),
+        });
+        const { port, recovered } = await sup.start();
+        process.stdout.write(
+          `OpenAgent supervised on port ${port}${recovered ? " (recovery mode)" : ""}.\n`,
+        );
+        const shutdown = () => void sup.stop().then(() => process.exit(0));
+        process.on("SIGINT", shutdown);
+        process.on("SIGTERM", shutdown);
+        await new Promise(() => undefined);
+        return;
+      }
+      if (opts.daemon && !opts.supervisedChild) {
+        const port = await findFreePort(preferred);
+        const { spawn } = await import("node:child_process");
+        const { writePidFile } = await import("@openagent/desktop");
+        const args = [
+          process.argv[1],
+          "start",
+          "--port",
+          String(port),
+          "--no-open",
+          ...(opts.safe ? ["--safe"] : []),
+          "--supervised-child",
+        ];
+        const child = spawn(process.execPath, args, {
+          cwd: projectDir,
+          detached: true,
+          stdio: "ignore",
+          shell: false,
+        });
+        child.unref();
+        writePidFile(path.join(projectDir, ".openagent"), child.pid ?? 0, port);
+        process.stdout.write(
+          `OpenAgent running in background (pid ${child.pid}, port ${port}).\n` +
+            `Dashboard → http://localhost:${port}\n` +
+            `Stop with: openagent stop\n`,
+        );
+        return;
+      }
+      const port =
+        opts.supervisedChild && opts.port
+          ? Number(opts.port)
+          : await findFreePort(preferred);
+      const { writePidFile, clearPidFile } = await import("@openagent/desktop");
+      const scope = path.join(projectDir, ".openagent");
+      writePidFile(scope, process.pid, port);
+      const done = () => {
+        try {
+          clearPidFile(scope);
+        } catch {
+          // ignore
+        }
+      };
+      process.on("exit", done);
+      await startLocalPlatform(projectDir, {
+        port,
+        open: opts.open !== false,
+        safe: opts.safe === true,
+      });
+    });
+
+  program
+    .command("stop")
+    .description("Stop a background/daemon OpenAgent engine")
+    .action(async (_o: unknown, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      const projectDir = requireProjectDir();
+      const { stopEngine } = await import("@openagent/desktop");
+      const stopped = await stopEngine(path.join(projectDir, ".openagent"));
+      ok(
+        stopped ? "OpenAgent engine stopped." : "No running engine found.",
+        out,
+      );
+    });
+
+  program
+    .command("restart")
+    .description("Restart the OpenAgent engine (background)")
+    .option("--safe", "restart in safe mode")
+    .action(async (opts: Record<string, boolean>, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      const projectDir = requireProjectDir();
+      const { stopEngine, writePidFile } = await import("@openagent/desktop");
+      const { findFreePort } = await import("@openagent/workflow-engine");
+      const { projectPort: projPort } = await import("./local.js");
+      await stopEngine(path.join(projectDir, ".openagent"));
+      const port = await findFreePort(projPort(projectDir));
+      const { spawn } = await import("node:child_process");
+      const child = spawn(
+        process.execPath,
+        [
+          process.argv[1],
+          "start",
+          "--port",
+          String(port),
+          "--no-open",
+          ...(opts.safe ? ["--safe"] : []),
+          "--supervised-child",
+        ],
+        { cwd: projectDir, detached: true, stdio: "ignore", shell: false },
+      );
+      child.unref();
+      writePidFile(path.join(projectDir, ".openagent"), child.pid ?? 0, port);
+      ok(`OpenAgent restarted on port ${port}.`, out);
+    });
+
+  program
+    .command("status")
+    .description("Show engine status (running, port, health)")
+    .action(async (_o: unknown, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      const projectDir = requireProjectDir();
+      const { engineStatus } = await import("@openagent/desktop");
+      const st = await engineStatus(path.join(projectDir, ".openagent"));
+      if (!st.running) {
+        emit({ running: false }, out);
+        return;
+      }
+      emit(
+        {
+          running: true,
+          pid: st.pid,
+          port: st.port,
+          health: st.healthy ? "HEALTHY" : "DEGRADED",
+          dashboard: `http://localhost:${st.port}`,
+        },
+        out,
+      );
+    });
+
+  // ---------- setup (one-click zero-config) ----------
+  program
+    .command("setup")
+    .description(
+      "One-click local setup: system check, runtime, AI, browser, health",
+    )
+    .option("--yes", "non-interactive; accept all defaults")
+    .option("--offline", "skip anything requiring internet")
+    .option("--skip-runtime", "skip embedded runtime install")
+    .option("--skip-ai", "skip AI runtime setup")
+    .option("--skip-model", "skip model download")
+    .option("--skip-browser", "skip browser engine install")
+    .option("--model <id>", "model to pull (overrides hardware recommendation)")
+    .option("--profile <p>", "LOW|BALANCED|POWER (overrides auto-detect)")
+    .option("--ai-mode <m>", "local|cloud|hybrid")
+    .option("--data-dir <dir>", "user data directory override")
+    .option("--start", "start the engine detached after setup")
+    .action(async (opts: Record<string, string | boolean>, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      if (opts.yes) process.env.OPENAGENT_YES = "1";
+      const { runSetup } = await import("./setup.js");
+      const report = await runSetup({
+        yes: opts.yes === true,
+        offline: opts.offline === true,
+        skipRuntime: opts.skipRuntime === true,
+        skipAi: opts.skipAi === true,
+        skipModel: opts.skipModel === true,
+        skipBrowser: opts.skipBrowser === true,
+        model: typeof opts.model === "string" ? opts.model : undefined,
+        profile:
+          typeof opts.profile === "string"
+            ? (opts.profile.toUpperCase() as "LOW" | "BALANCED" | "POWER")
+            : undefined,
+        aiMode:
+          typeof opts.aiMode === "string"
+            ? (opts.aiMode as "local" | "cloud" | "hybrid")
+            : undefined,
+        dataDir: typeof opts.dataDir === "string" ? opts.dataDir : undefined,
+      });
+      emit(report, { ...out, json: true });
+      if (opts.start) {
+        const { spawn } = await import("node:child_process");
+        const { writePidFile } = await import("@openagent/desktop");
+        const child = spawn(
+          process.execPath,
+          [
+            process.argv[1],
+            "start",
+            "--port",
+            String(report.port),
+            "--supervised-child",
+          ],
+          {
+            cwd: report.workspace,
+            detached: true,
+            stdio: "ignore",
+            shell: false,
+          },
+        );
+        child.unref();
+        writePidFile(
+          path.join(report.workspace, ".openagent"),
+          child.pid ?? 0,
+          report.port,
+        );
+        ok(`Engine started in background on port ${report.port}.`, out);
+      }
     });
 
   // ---------- run (shorthand for workflow run) ----------
@@ -546,9 +776,34 @@ export function registerLocalCommands(program: Command): void {
   program
     .command("update")
     .description("Check for updates and show the safe update flow")
-    .action(async (_o: unknown, cmd: Command) => {
+    .option("--apply", "download and install the update (snapshot + rollback)")
+    .action(async (opts: Record<string, boolean>, cmd: Command) => {
       const out = flagsOf(program, cmd);
       const current = "1.0.0";
+      if (opts.apply) {
+        const { updateWithRollback } = await import("@openagent/desktop");
+        const res = await updateWithRollback({
+          packageName: "@openagent/cli",
+          current,
+          cwd: process.cwd(),
+        });
+        if (res.updated) {
+          ok(
+            `Updated ${res.from} → ${res.to} (snapshot ${res.backupId}).`,
+            out,
+          );
+        } else if (res.rolledBack) {
+          ok(
+            `Update failed and was rolled back (snapshot ${res.backupId}).`,
+            out,
+          );
+          process.exitCode = 1;
+        } else {
+          ok(`Already up to date (${current}).`, out);
+        }
+        emit(res, { ...out, json: true });
+        return;
+      }
       let latest = current;
       try {
         const res = await fetch(
@@ -590,6 +845,157 @@ export function registerLocalCommands(program: Command): void {
         { version: "1.0.0", package: "@openagent/cli" },
         flagsOf(program, cmd),
       );
+    });
+
+  // ---------- uninstall / backup / restore / reset ----------
+  program
+    .command("uninstall")
+    .description("Uninstall OpenAgent (application only by default)")
+    .option("--full", "also remove user data (workflows, memory, settings)")
+    .option("--yes", "skip confirmation")
+    .action(async (opts: Record<string, boolean>, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      const { getAppDirs } = await import("@openagent/workflow-engine");
+      const { stopEngine } = await import("@openagent/desktop");
+      const dirs = getAppDirs();
+      try {
+        const proj = requireProjectDir();
+        await stopEngine(path.join(proj, ".openagent"));
+      } catch {
+        // no project — nothing to stop
+      }
+      if (opts.full && !opts.yes && process.stdin.isTTY) {
+        const ans = (await prompts({
+          type: "confirm",
+          name: "confirm",
+          message: `Delete ALL user data in ${dirs.data}? Workflows, memory and settings will be lost.`,
+          initial: false,
+        })) as { confirm?: boolean };
+        if (!ans.confirm) {
+          ok("Uninstall cancelled.", out);
+          return;
+        }
+      }
+      const removeDir = (d: string) => {
+        if (fs.existsSync(d)) {
+          fs.rmSync(d, { recursive: true, force: true });
+          return true;
+        }
+        return false;
+      };
+      if (opts.full) {
+        removeDir(dirs.app);
+        ok(`Removed application and user data (${dirs.app}).`, out);
+      } else {
+        // Application only: keep data/ (workflows, agents, memory, settings).
+        let kept = false;
+        for (const sub of [
+          "app",
+          "runtime",
+          "engine",
+          "browser",
+          "models",
+          "plugins",
+          "cache",
+        ]) {
+          const d = path.join(dirs.app, sub);
+          if (removeDir(d)) kept = true;
+        }
+        void kept;
+        ok(
+          `Removed application binaries. User data preserved in ${dirs.data}.`,
+          out,
+        );
+      }
+      removeShortcuts();
+    });
+
+  const backupCmd = program
+    .command("backup")
+    .description("Back up project user data");
+  backupCmd
+    .command("create")
+    .description("Create a rolling backup (secrets stay encrypted)")
+    .action(async (_o: unknown, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      const m = createProjectBackup(requireProjectDir());
+      ok(`Backup ${m.id} created (${m.files.length} entries).`, out);
+      emit(m, { ...out, json: true });
+    });
+  backupCmd
+    .command("list")
+    .description("List backups")
+    .action(async (_o: unknown, cmd: Command) => {
+      emit(listProjectBackups(requireProjectDir()), flagsOf(program, cmd));
+    });
+  backupCmd
+    .command("restore <id>")
+    .description("Restore a backup")
+    .action(async (id: string, _o: unknown, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      restoreProjectBackup(requireProjectDir(), id);
+      ok(`Restored backup ${id}.`, out);
+    });
+
+  program
+    .command("reset")
+    .description("Reset parts of the local installation")
+    .option("--settings", "reset settings to defaults")
+    .option("--ai", "reset AI configuration and cached models state")
+    .option("--cache", "clear caches")
+    .option("--all", "reset all local data (keeps backups)")
+    .option("--yes", "skip confirmation for --all")
+    .action(async (opts: Record<string, boolean>, cmd: Command) => {
+      const out = flagsOf(program, cmd);
+      const projectDir = requireProjectDir();
+      const oa = path.join(projectDir, ".openagent");
+      if (opts.all && !opts.yes && process.stdin.isTTY) {
+        const ans = (await prompts({
+          type: "confirm",
+          name: "confirm",
+          message: "Reset ALL local data? Backups are kept.",
+          initial: false,
+        })) as { confirm?: boolean };
+        if (!ans.confirm) {
+          ok("Reset cancelled.", out);
+          return;
+        }
+      }
+      const rm = (p: string) => {
+        if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
+      };
+      if (opts.settings || opts.all) {
+        rm(path.join(oa, "config.json"));
+        try {
+          const { getAppDirs: gad } =
+            await import("@openagent/workflow-engine");
+          rm(path.join(gad().data, "config", "wizard.json"));
+        } catch {
+          // ignore
+        }
+        initProject(projectDir);
+        ok("Settings reset to defaults.", out);
+      }
+      if (opts.ai || opts.all) {
+        try {
+          const { getAppDirs: gad } =
+            await import("@openagent/workflow-engine");
+          rm(path.join(gad().models, "pending.json"));
+        } catch {
+          // ignore
+        }
+        ok(
+          "AI configuration reset (re-run `openagent setup` to pull a model).",
+          out,
+        );
+      }
+      if (opts.cache || opts.all) {
+        rm(path.join(oa, "cache"));
+        ok("Caches cleared.", out);
+      }
+      if (!opts.settings && !opts.ai && !opts.cache && !opts.all) {
+        fail("Choose --settings, --ai, --cache, or --all.");
+      }
     });
 
   // ---------- git ----------
@@ -664,3 +1070,47 @@ export {
   testMcpServer,
   listExecutionsLocal,
 };
+
+/** Best-effort removal of installer-created shortcuts/registry entries. */
+function removeShortcuts(): void {
+  try {
+    if (process.platform !== "win32") return;
+    const appData = process.env.APPDATA ?? "";
+    const desktop = path.join(process.env.USERPROFILE ?? "", "Desktop");
+    for (const lnk of [
+      path.join(
+        appData,
+        "Microsoft",
+        "Windows",
+        "Start Menu",
+        "Programs",
+        "OpenAgent.lnk",
+      ),
+      path.join(
+        appData,
+        "Microsoft",
+        "Windows",
+        "Start Menu",
+        "Programs",
+        "OpenAgent Settings.lnk",
+      ),
+      path.join(
+        appData,
+        "Microsoft",
+        "Windows",
+        "Start Menu",
+        "Programs",
+        "OpenAgent Uninstall.lnk",
+      ),
+      path.join(desktop, "OpenAgent.lnk"),
+    ]) {
+      try {
+        if (fs.existsSync(lnk)) fs.rmSync(lnk, { force: true });
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // best effort
+  }
+}

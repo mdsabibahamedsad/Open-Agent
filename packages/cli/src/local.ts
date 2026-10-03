@@ -625,19 +625,131 @@ export function deleteSchedule(projectDir: string, id: string): boolean {
   return true;
 }
 
+// ---------- project backups (user data safety) ----------
+export interface ProjectBackupManifest {
+  id: string;
+  createdAt: string;
+  files: string[];
+}
+
+function projectBackupsDir(projectDir: string): string {
+  return path.join(projectDir, PROJECT_DIR_NAME, "backups");
+}
+
+const PROJECT_BACKUP_ENTRIES = [
+  "workflows",
+  "agents",
+  "config.json",
+  "credentials",
+  "schedules",
+  "mcp.json",
+];
+
+export function createProjectBackup(
+  projectDir: string,
+  keep = 5,
+): ProjectBackupManifest {
+  const base = path.join(projectDir, PROJECT_DIR_NAME);
+  const id = `backup_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const dest = path.join(projectBackupsDir(projectDir), id);
+  fs.mkdirSync(dest, { recursive: true });
+  const files: string[] = [];
+  for (const rel of PROJECT_BACKUP_ENTRIES) {
+    const src = path.join(base, rel);
+    if (!fs.existsSync(src)) continue;
+    const target = path.join(dest, rel);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.cpSync(src, target, { recursive: true });
+    files.push(rel);
+  }
+  const manifest: ProjectBackupManifest = {
+    id,
+    createdAt: new Date().toISOString(),
+    files,
+  };
+  fs.writeFileSync(
+    path.join(dest, "manifest.json"),
+    JSON.stringify(manifest, null, 2),
+  );
+  try {
+    const all = fs
+      .readdirSync(projectBackupsDir(projectDir))
+      .filter((d) => d.startsWith("backup_"))
+      .sort();
+    while (all.length > keep) {
+      const oldest = all.shift() as string;
+      fs.rmSync(path.join(projectBackupsDir(projectDir), oldest), {
+        recursive: true,
+        force: true,
+      });
+    }
+  } catch {
+    // best effort
+  }
+  return manifest;
+}
+
+export function listProjectBackups(
+  projectDir: string,
+): ProjectBackupManifest[] {
+  const dir = projectBackupsDir(projectDir);
+  if (!fs.existsSync(dir)) return [];
+  const out: ProjectBackupManifest[] = [];
+  for (const d of fs.readdirSync(dir)) {
+    const mf = path.join(dir, d, "manifest.json");
+    try {
+      if (fs.existsSync(mf))
+        out.push(
+          JSON.parse(fs.readFileSync(mf, "utf8")) as ProjectBackupManifest,
+        );
+    } catch {
+      // skip corrupt entries
+    }
+  }
+  return out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+export function restoreProjectBackup(projectDir: string, id: string): void {
+  const src = path.join(projectBackupsDir(projectDir), id);
+  const mf = path.join(src, "manifest.json");
+  if (!fs.existsSync(mf))
+    throw Object.assign(new Error(`backup '${id}' not found`), { exitCode: 1 });
+  const manifest = JSON.parse(
+    fs.readFileSync(mf, "utf8"),
+  ) as ProjectBackupManifest;
+  for (const rel of manifest.files) {
+    if (rel.includes("..") || path.isAbsolute(rel)) continue;
+    const from = path.join(src, rel);
+    const to = path.join(projectDir, PROJECT_DIR_NAME, rel);
+    if (!fs.existsSync(from)) continue;
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.cpSync(from, to, { recursive: true });
+  }
+}
+
 // ---------- server ----------
 export async function startLocalPlatform(
   projectDir: string,
-  opts?: { port?: number; open?: boolean },
+  opts?: { port?: number; open?: boolean; safe?: boolean },
 ): Promise<void> {
-  const port = opts?.port ?? projectPort(projectDir);
+  const preferred = opts?.port ?? projectPort(projectDir);
+  const { findFreePort, startScheduler } =
+    await import("@openagent/workflow-engine");
+  const port = await findFreePort(preferred);
+  if (port !== preferred) {
+    process.stdout.write(
+      `Port ${preferred} is occupied — using ${port} instead.\n`,
+    );
+  }
   const server = startServer({
     projectDir,
     port,
     onLog: (m) => process.stdout.write(m + "\n"),
   });
-  const { startScheduler } = await import("@openagent/workflow-engine");
-  const stop = startScheduler(projectDir);
+  const stop = opts?.safe ? () => undefined : startScheduler(projectDir);
+  if (opts?.safe) {
+    process.stdout.write("Safe mode: scheduler and plugins disabled.\n");
+  }
   const ollama = await checkOllama().catch(() => ({
     ok: false,
     models: [],
@@ -652,7 +764,7 @@ export async function startLocalPlatform(
     `${ollama.ok ? "✓" : "○"} Ollama ${ollama.ok ? `(${ollama.models[0] ?? "model"} )` : "(not detected — AI nodes use heuristic fallback)"}`,
     "✓ Database (local JSON/SQLite-ready)",
     "✓ Workflow Engine",
-    "✓ Scheduler",
+    opts?.safe ? "○ Scheduler (disabled in safe mode)" : "✓ Scheduler",
     "✓ MCP registry",
     "",
     `Dashboard → http://localhost:${port}`,

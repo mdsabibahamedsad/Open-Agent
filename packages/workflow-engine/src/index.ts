@@ -10,6 +10,9 @@ export * from "./memory.js";
 export * from "./templates.js";
 export * from "./server.js";
 export * from "./scheduler.js";
+export * from "./system.js";
+export * from "./download.js";
+export * from "./appdirs.js";
 
 export const WORKFLOW_ENGINE_VERSION = "1.0.0";
 
