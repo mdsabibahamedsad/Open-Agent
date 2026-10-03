@@ -6,6 +6,7 @@ import {
   FileMemoryManager,
   ToolRegistry,
   generateWorkflowFromPrompt,
+  getAppDirs,
   getTemplate,
   listTemplates,
   runWorkflow,
@@ -39,16 +40,33 @@ export function isInitialized(dir = process.cwd()): boolean {
 }
 
 export function requireProjectDir(dir = process.cwd()): string {
-  const found = findProjectDir(dir);
-  if (!found) {
-    throw Object.assign(
-      new Error(
-        `No OpenAgent project found. Run \`openagent init\` first.\n\nWelcome to OpenAgent\n\nAI Automation Infrastructure for Developers\n\nGet started:\n\n> openagent init`,
-      ),
-      { exitCode: 2 },
+  return resolveRuntimeProject(dir, { init: true }).dir;
+}
+
+/** Global zero-config workspace (created by `openagent setup`). */
+export function globalWorkspaceDir(): string {
+  return path.join(getAppDirs().workspace);
+}
+
+/**
+ * Resolve the project to operate on: nearest local `.openagent/` project,
+ * else the global workspace. Never throws for missing projects — commands
+ * must keep working after `openagent setup` regardless of cwd.
+ */
+export function resolveRuntimeProject(
+  start = process.cwd(),
+  opts: { init?: boolean } = {},
+): { dir: string; scoped: boolean } {
+  const found = findProjectDir(start);
+  if (found) return { dir: found, scoped: true };
+  const dir = globalWorkspaceDir();
+  if (opts.init !== false) initProject(dir);
+  if (process.env.OPENAGENT_QUIET_SCOPE !== "1") {
+    process.stderr.write(
+      `Using global workspace ${dir} (no local .openagent project found).\n`,
     );
   }
-  return found;
+  return { dir, scoped: false };
 }
 
 const SUBDIRS = [

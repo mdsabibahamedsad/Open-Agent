@@ -38,7 +38,7 @@ import {
 } from "./validate.js";
 import { scanDirectory, formatFindings } from "./security.js";
 import { packageProject, inspectPackage } from "./packaging.js";
-import { initProject, findProjectDir } from "./local.js";
+import { initProject, findProjectDir, globalWorkspaceDir } from "./local.js";
 
 export interface GlobalFlags {
   json?: boolean;
@@ -1194,7 +1194,7 @@ export function registerCommands(program: Command): void {
           out,
         );
       } catch {
-        const dir = findProjectDir() ?? process.cwd();
+        const dir = findProjectDir() ?? globalWorkspaceDir();
         const { listMcpServers } = await import("./local.js");
         printResult({ servers: listMcpServers(dir), scope: "local" }, out);
       }
@@ -1251,7 +1251,7 @@ export function registerCommands(program: Command): void {
           out,
         );
       } catch {
-        const dir = findProjectDir() ?? process.cwd();
+        const dir = findProjectDir() ?? globalWorkspaceDir();
         const { testMcpServer } = await import("./local.js");
         printResult(await testMcpServer(dir, id), out);
       }
@@ -1270,7 +1270,7 @@ export function registerCommands(program: Command): void {
         cmd: Command,
       ) => {
         const out = outFrom(program, cmd);
-        const dir = findProjectDir() ?? process.cwd();
+        const dir = findProjectDir() ?? globalWorkspaceDir();
         const { addMcpServer } = await import("./local.js");
         const id = name.toLowerCase().replace(/[^a-z0-9-_]/g, "-");
         addMcpServer(dir, {
@@ -1290,7 +1290,7 @@ export function registerCommands(program: Command): void {
     .description("Remove a local MCP server")
     .action(async (id: string, _o: unknown, cmd: Command) => {
       const out = outFrom(program, cmd);
-      const dir = findProjectDir() ?? process.cwd();
+      const dir = findProjectDir() ?? globalWorkspaceDir();
       const { removeMcpServer } = await import("./local.js");
       if (!removeMcpServer(dir, id)) {
         printErrorLine(`MCP server '${id}' not found.`, out);
@@ -1550,7 +1550,7 @@ export function registerCommands(program: Command): void {
           out,
         );
       } catch {
-        const dir = findProjectDir() ?? process.cwd();
+        const dir = findProjectDir() ?? globalWorkspaceDir();
         const { listExecutionsLocal } = await import("./local.js");
         printResult(
           {

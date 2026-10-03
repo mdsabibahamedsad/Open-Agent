@@ -9,6 +9,7 @@ import {
   deleteWorkflowLocal,
   findProjectDir,
   getWorkflowLocal,
+  globalWorkspaceDir,
   initProject,
   installNodePackage,
   listAgentsLocal,
@@ -669,7 +670,7 @@ export function registerLocalCommands(program: Command): void {
     .description("List built-in node types")
     .action(async (_o: unknown, cmd: Command) => {
       const out = flagsOf(program, cmd);
-      const projectDir = findProjectDir() ?? process.cwd();
+      const projectDir = findProjectDir() ?? globalWorkspaceDir();
       emit(
         {
           builtin: listNodesLocal(),
