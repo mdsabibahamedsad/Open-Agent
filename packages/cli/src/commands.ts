@@ -1723,7 +1723,11 @@ export function registerCommands(program: Command): void {
   program
     .command("doctor")
     .description("Check environment, auth, project, and connectivity")
-    .action(async (_o: unknown, cmd: Command) => {
+    .option(
+      "--fix",
+      "automatically repair PATH when the npm global bin is missing",
+    )
+    .action(async (opts: Record<string, boolean>, cmd: Command) => {
       const out = outFrom(program, cmd);
       const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
       const nodeOk = Number(process.versions.node.split(".")[0]) >= 20;
@@ -1797,7 +1801,8 @@ export function registerCommands(program: Command): void {
       });
       // Local platform checks (Ollama, models, browser, ports, filesystem).
       try {
-        const { runDoctor } = await import("./local.js");
+        const { runDoctor, getNpmGlobalInfo, repairNpmGlobalPath } =
+          await import("./local.js");
         const local = await runDoctor(findProjectDir());
         for (const c of local) {
           if (["Node.js", "npm", "project", "filesystem"].includes(c.name))
@@ -1807,6 +1812,56 @@ export function registerCommands(program: Command): void {
             ok: c.ok,
             detail: c.fix ? `${c.detail} — fix: ${c.fix}` : c.detail,
           });
+        }
+        // Windows CLI installation diagnostics (global prefix/bin/PATH).
+        const gi = await getNpmGlobalInfo();
+        checks.push({
+          name: "npm prefix",
+          ok: true,
+          detail: `${gi.prefix} (npm ${gi.npmVersion ?? "unknown"})`,
+        });
+        checks.push({
+          name: "openagent executable",
+          ok: gi.exeExists,
+          detail: gi.exeExists
+            ? gi.expectedExe
+            : `missing: ${gi.expectedExe} — install with: npm install -g @openagent/cli (NOT the placeholder 'openagent' package)`,
+        });
+        if (gi.exeExists && !gi.pathContainsBin) {
+          checks.push({
+            name: "PATH",
+            ok: false,
+            detail:
+              "OpenAgent CLI is installed but Windows cannot find it from PATH. " +
+              `Expected on PATH: ${gi.binDir}. Restart your terminal after npm global installation, or run: openagent doctor --fix`,
+          });
+          if (opts.fix) {
+            const repaired = await repairNpmGlobalPath();
+            checks.push({
+              name: "PATH repair",
+              ok: repaired.added,
+              detail: repaired.detail,
+            });
+          }
+        } else {
+          checks.push({
+            name: "PATH",
+            ok: gi.pathContainsBin,
+            detail: gi.pathContainsBin
+              ? `npm global bin is on PATH (${gi.binDir})`
+              : `npm global bin not on PATH (${gi.binDir}) — run: openagent doctor --fix, then restart your terminal`,
+          });
+          if (!gi.pathContainsBin && opts.fix) {
+            const repaired = await repairNpmGlobalPath();
+            checks.push({
+              name: "PATH repair",
+              ok: repaired.added,
+              detail: repaired.detail,
+            });
+          }
+        }
+        if (gi.installDir) {
+          checks.push({ name: "install dir", ok: true, detail: gi.installDir });
         }
         if (!out.quiet && !out.json) {
           process.stdout.write("\nOpenAgent Doctor\n\n");

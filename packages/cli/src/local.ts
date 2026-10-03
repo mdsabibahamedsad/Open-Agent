@@ -813,6 +813,178 @@ export interface DoctorCheck {
   fix?: string;
 }
 
+export interface NpmGlobalInfo {
+  npmVersion: string | null;
+  prefix: string;
+  /** Directory that must be on PATH (holds openagent.cmd on Windows). */
+  binDir: string;
+  expectedExe: string;
+  exeExists: boolean;
+  pathContainsBin: boolean;
+  installDir: string | null;
+}
+
+function npmCmd(): { cmd: string; prefixArgs: string[] } {
+  return process.platform === "win32"
+    ? { cmd: "cmd.exe", prefixArgs: ["/d", "/s", "/c"] }
+    : { cmd: "npm", prefixArgs: [] };
+}
+
+function runNpm(
+  args: string[],
+  timeout = 15000,
+): Promise<{ ok: boolean; out: string }> {
+  return new Promise((resolve) => {
+    try {
+      const { cmd, prefixArgs } = npmCmd();
+      const full =
+        process.platform === "win32"
+          ? [...prefixArgs, `npm ${args.join(" ")}`]
+          : args;
+      execFile(cmd, full, { timeout }, (err, stdout, stderr) => {
+        resolve({ ok: !err, out: String(stdout ?? stderr ?? "").trim() });
+      });
+    } catch {
+      resolve({ ok: false, out: "" });
+    }
+  });
+}
+
+/** Inspect the npm global install: prefix, bin dir, exe presence, PATH. */
+export async function getNpmGlobalInfo(): Promise<NpmGlobalInfo> {
+  const ver = await runNpm(["--version"]);
+  let prefix = "";
+  const p = await runNpm(["config", "get", "prefix"]);
+  if (p.ok && p.out) prefix = p.out.split("\n")[0]?.trim() ?? "";
+  if (!prefix) {
+    prefix =
+      process.platform === "win32"
+        ? path.join(process.env.APPDATA ?? "", "npm")
+        : "/usr/local";
+  }
+  const exeName = process.platform === "win32" ? "openagent.cmd" : "openagent";
+  const binDir = prefix;
+  const expectedExe = path.join(binDir, exeName);
+  const exeExists = fs.existsSync(expectedExe);
+  const rawPath = `${process.env.Path ?? ""}${path.delimiter}${process.env.PATH ?? ""}`;
+  const norm = (s: string) => s.replace(/[/\\]+$/, "").toLowerCase();
+  const pathContainsBin = rawPath
+    .split(path.delimiter)
+    .some((d) => norm(d) === norm(binDir));
+  let installDir: string | null = null;
+  if (exeExists) {
+    try {
+      installDir = fs.realpathSync(expectedExe);
+    } catch {
+      installDir = expectedExe;
+    }
+  } else {
+    // Maybe installed but shim missing (partial install): look for package dir.
+    const pkgDir = path.join(prefix, "node_modules", "@openagent", "cli");
+    if (fs.existsSync(pkgDir)) installDir = pkgDir;
+  }
+  return {
+    npmVersion:
+      ver.ok && ver.out ? (ver.out.split("\n")[0]?.trim() ?? null) : null,
+    prefix,
+    binDir,
+    expectedExe,
+    exeExists,
+    pathContainsBin,
+    installDir,
+  };
+}
+
+/**
+ * Automatic repair: append the npm global bin dir to the CURRENT USER PATH
+ * (HKCU, never machine-wide) and report that terminals must be restarted.
+ */
+export async function repairNpmGlobalPath(): Promise<{
+  added: boolean;
+  binDir: string;
+  detail: string;
+}> {
+  const info = await getNpmGlobalInfo();
+  if (info.pathContainsBin) {
+    return {
+      added: false,
+      binDir: info.binDir,
+      detail: "npm global bin is already on PATH",
+    };
+  }
+  if (process.platform === "win32") {
+    const current = await runNpm(["config", "get", "prefix"]).catch(() => ({
+      ok: false,
+      out: "",
+    }));
+    void current;
+    const { execFile: ef } = await import("node:child_process");
+    const existing: string = await new Promise((resolve) => {
+      ef(
+        "cmd.exe",
+        ["/d", "/s", "/c", "reg query HKCU\\Environment /v Path"],
+        { timeout: 15000 },
+        (err, stdout) => {
+          if (err) return resolve("");
+          const m = String(stdout).match(/Path\s+REG_\w+\s+([\s\S]+)/);
+          resolve((m?.[1] ?? "").trim());
+        },
+      );
+    });
+    const next = existing ? `${existing};${info.binDir}` : info.binDir;
+    const ok = await new Promise<boolean>((resolve) => {
+      ef(
+        "cmd.exe",
+        [
+          "/d",
+          "/s",
+          "/c",
+          `reg add HKCU\\Environment /v Path /t REG_EXPAND_SZ /d "${next.replace(/"/g, "")}" /f`,
+        ],
+        { timeout: 15000 },
+        (err) => resolve(!err),
+      );
+    });
+    if (ok) {
+      return {
+        added: true,
+        binDir: info.binDir,
+        detail: `Added ${info.binDir} to user PATH. Restart your terminal, then run: openagent doctor`,
+      };
+    }
+    return {
+      added: false,
+      binDir: info.binDir,
+      detail: "Could not update user PATH automatically",
+    };
+  }
+  return {
+    added: false,
+    binDir: info.binDir,
+    detail: `Add to PATH manually: export PATH="${info.binDir}:$PATH"`,
+  };
+}
+
+/** Message shown when the shell cannot find `openagent` at all. */
+export function cliNotFoundMessage(info: NpmGlobalInfo): string {
+  return [
+    "OpenAgent CLI was not found in PATH.",
+    "",
+    `Detected npm global prefix: ${info.prefix}`,
+    `Expected executable: ${info.expectedExe} (${info.exeExists ? "present" : "missing"})`,
+    info.exeExists && !info.pathContainsBin
+      ? "OpenAgent CLI is installed but Windows cannot find it from PATH."
+      : "If you ran `npm install -g openagent`, note that name is an unrelated placeholder — install the official package instead:",
+    "",
+    "Suggested fix:",
+    "  npm install -g @openagent/cli",
+    "Then restart your terminal after npm global installation, and verify with:",
+    "  where openagent",
+    "  openagent doctor",
+    "Or run without installing: npx @openagent/cli --help",
+  ].join("\n");
+}
+
 export async function runDoctor(
   projectDir: string | null,
 ): Promise<DoctorCheck[]> {

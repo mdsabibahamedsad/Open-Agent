@@ -41,9 +41,11 @@ function exitCodeFor(err: unknown): number {
   return 1;
 }
 
-try {
+async function main(): Promise<void> {
   await program.parseAsync(process.argv);
-} catch (err) {
+}
+
+main().catch((err: unknown) => {
   const noColor =
     process.env.NO_COLOR !== undefined || process.argv.includes("--no-color");
   const msg = err instanceof Error ? err.message : String(err);
@@ -58,4 +60,4 @@ try {
   } else {
     process.exitCode = code;
   }
-}
+});

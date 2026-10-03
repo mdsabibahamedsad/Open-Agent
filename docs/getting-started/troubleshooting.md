@@ -2,6 +2,36 @@
 
 Each entry: Problem → Cause → Fix → Verification.
 
+# Troubleshooting
+
+## `openagent` is not recognized after `npm install -g openagent`
+
+- **Problem:** `npm install -g openagent` reports success, but `openagent`
+  fails with `'openagent' is not recognized as an internal or external command`.
+- **Cause:** The unscoped name `openagent` on the public npm registry is an
+  unrelated third-party placeholder (v0.0.1, no executable). npm installed
+  that placeholder — not this project.
+- **Fix:** Install the official package and restart your terminal:
+  `npm install -g @openagent/cli`, then verify with `where openagent` and
+  `openagent doctor`. If the executable exists but PATH is wrong,
+  `openagent doctor` says so explicitly and `openagent doctor --fix` repairs
+  the user PATH automatically. No install at all? Use
+  `npx @openagent/cli --help`.
+- **Verification:** `openagent --version` prints a version; `openagent doctor`
+  shows `openagent executable` as present and `PATH` as ok.
+
+## `openagent` installed but Windows cannot find it from PATH
+
+- **Problem:** The executable exists under the npm global prefix, but new
+  terminals still cannot find `openagent`.
+- **Cause:** The npm global bin directory is not on PATH (common with custom
+  `npm config set prefix` locations), or the terminal was opened before
+  installation.
+- **Fix:** Run `openagent doctor --fix` (adds the prefix to the _user_ PATH,
+  never machine-wide), then **restart the terminal**. Verify with
+  `where openagent`.
+- **Verification:** `openagent doctor` reports `PATH` ok.
+
 ## `pnpm doctor` shows pnpm's own check instead of OpenAgent's
 
 - **Problem:** `pnpm doctor` prints pnpm installation diagnostics, not "OpenAgent Doctor".

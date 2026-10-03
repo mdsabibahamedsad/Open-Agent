@@ -149,7 +149,8 @@ The CLI is also a local-first automation platform (SQLite/JSON + Ollama + local
 workflow engine). No Docker, no cloud account needed:
 
 ```bash
-npm install -g openagent
+npm install -g @openagent/cli   # official package (NOT `openagent` — that name
+                                # is an unrelated registry placeholder)
 
 openagent init
 
