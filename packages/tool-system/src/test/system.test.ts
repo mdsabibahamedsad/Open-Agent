@@ -9,16 +9,18 @@ import {
   RateLimiter,
   BuiltinToolAdapter,
   BUILTIN_TOOLS,
-  ToolDefinition,
-  ToolCategory,
-  ToolCapability,
-  ToolRiskLevel,
-  ToolExecutionMode,
-  ToolLifecycleStatus,
-  ToolTrustLevel,
-  ToolProviderType,
-  ToolExecutionContext,
-} from "./index";
+  ToolCategoryValues,
+  ToolCapabilityValues,
+  type ToolDefinition,
+  type ToolCategory,
+  type ToolCapability,
+  type ToolRiskLevel,
+  type ToolExecutionMode,
+  type ToolLifecycleStatus,
+  type ToolTrustLevel,
+  type ToolProviderType,
+  type ToolExecutionContext,
+} from "../index";
 
 describe("ToolRegistry", () => {
   let registry: ToolRegistry;
@@ -37,14 +39,14 @@ describe("ToolRegistry", () => {
       display_name: "Test Tool",
       description: "A test tool",
       icon: "tool",
-      category: ToolCategory.UTILITY,
+      category: "utility",
       tags: ["test"],
       documentation_url: "https://example.com",
       provider: "test",
       version: "1.0.0",
-      capabilities: [ToolCapability.READ],
-      risk_level: ToolRiskLevel.LOW,
-      execution_mode: ToolExecutionMode.SYNC,
+      capabilities: ["read"],
+      risk_level: "LOW",
+      execution_mode: "SYNC",
       timeout: 30000,
       retry_policy: {
         max_attempts: 3,
@@ -55,7 +57,7 @@ describe("ToolRegistry", () => {
       supports_streaming: false,
       supports_cancellation: true,
       supports_idempotency: true,
-      trust_level: ToolTrustLevel.CORE,
+      trust_level: "CORE",
       ...overrides.metadata,
     },
     input_schema: {
@@ -67,7 +69,7 @@ describe("ToolRegistry", () => {
       type: "object",
       properties: { result: { type: "string" } },
     },
-    status: ToolLifecycleStatus.ACTIVE,
+    status: "ACTIVE",
     configuration: {},
     created_at: new Date(),
     updated_at: new Date(),
@@ -126,19 +128,19 @@ describe("ToolRegistry", () => {
   it("should filter tools by category", () => {
     const tool1 = createMockTool({
       slug: "tool.one",
-      metadata: { ...createMockTool().metadata, category: ToolCategory.HTTP },
+      metadata: { ...createMockTool().metadata, category: "http" },
     });
     const tool2 = createMockTool({
       slug: "tool.two",
       metadata: {
         ...createMockTool().metadata,
-        category: ToolCategory.UTILITY,
+        category: "utility",
       },
     });
     registry.register(tool1);
     registry.register(tool2);
 
-    const httpTools = registry.listTools({ category: ToolCategory.HTTP });
+    const httpTools = registry.listTools({ category: "http" });
     expect(httpTools.length).toBe(1);
     expect(httpTools[0].slug).toBe("tool.one");
   });
@@ -149,11 +151,11 @@ describe("PolicyEngine", () => {
   const createDefaultPolicy = () => ({
     allowed_tools: [],
     blocked_tools: [],
-    allowed_categories: Object.values(ToolCategory),
+    allowed_categories: ToolCategoryValues,
     blocked_categories: [],
-    allowed_risk_levels: [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM],
-    max_risk_level: ToolRiskLevel.HIGH,
-    allowed_capabilities: Object.values(ToolCapability),
+    allowed_risk_levels: ["LOW", "MEDIUM"],
+    max_risk_level: "HIGH",
+    allowed_capabilities: ToolCapabilityValues,
     blocked_capabilities: [],
     allowed_domains: [],
     blocked_domains: [],
@@ -182,14 +184,14 @@ describe("PolicyEngine", () => {
       display_name: "Test Tool",
       description: "A test tool",
       icon: "tool",
-      category: ToolCategory.UTILITY,
+      category: "utility",
       tags: ["test"],
       documentation_url: "https://example.com",
       provider: "test",
       version: "1.0.0",
-      capabilities: [ToolCapability.READ],
-      risk_level: ToolRiskLevel.LOW,
-      execution_mode: ToolExecutionMode.SYNC,
+      capabilities: ["read"],
+      risk_level: "LOW",
+      execution_mode: "SYNC",
       timeout: 30000,
       retry_policy: {
         max_attempts: 3,
@@ -200,7 +202,7 @@ describe("PolicyEngine", () => {
       supports_streaming: false,
       supports_cancellation: true,
       supports_idempotency: true,
-      trust_level: ToolTrustLevel.CORE,
+      trust_level: "CORE",
       ...overrides.metadata,
     },
     input_schema: {
@@ -212,7 +214,7 @@ describe("PolicyEngine", () => {
       type: "object",
       properties: { result: { type: "string" } },
     },
-    status: ToolLifecycleStatus.ACTIVE,
+    status: "ACTIVE",
     configuration: {},
     created_at: new Date(),
     updated_at: new Date(),
@@ -274,12 +276,12 @@ describe("PolicyEngine", () => {
 
   it("should block category", async () => {
     const tool = createMockTool({
-      metadata: { ...createMockTool().metadata, category: ToolCategory.SHELL },
+      metadata: { ...createMockTool().metadata, category: "shell" },
     });
     const context = createMockContext();
     policyEngine.setOrganizationPolicy("org-1", {
       ...createDefaultPolicy(),
-      blocked_categories: [ToolCategory.SHELL],
+      blocked_categories: ["shell"],
     });
 
     const result = await policyEngine.evaluate(tool, context);
@@ -312,14 +314,14 @@ describe("RiskEngine", () => {
       display_name: "Test Tool",
       description: "A test tool",
       icon: "tool",
-      category: ToolCategory.UTILITY,
+      category: "utility",
       tags: ["test"],
       documentation_url: "https://example.com",
       provider: "test",
       version: "1.0.0",
-      capabilities: [ToolCapability.READ],
-      risk_level: ToolRiskLevel.LOW,
-      execution_mode: ToolExecutionMode.SYNC,
+      capabilities: ["read"],
+      risk_level: "LOW",
+      execution_mode: "SYNC",
       timeout: 30000,
       retry_policy: {
         max_attempts: 3,
@@ -330,7 +332,7 @@ describe("RiskEngine", () => {
       supports_streaming: false,
       supports_cancellation: true,
       supports_idempotency: true,
-      trust_level: ToolTrustLevel.CORE,
+      trust_level: "CORE",
       ...overrides.metadata,
     },
     input_schema: {
@@ -342,7 +344,7 @@ describe("RiskEngine", () => {
       type: "object",
       properties: { result: { type: "string" } },
     },
-    status: ToolLifecycleStatus.ACTIVE,
+    status: "ACTIVE",
     configuration: {},
     created_at: new Date(),
     updated_at: new Date(),
@@ -364,11 +366,11 @@ describe("RiskEngine", () => {
     policy: {
       allowed_tools: [],
       blocked_tools: [],
-      allowed_categories: Object.values(ToolCategory),
+      allowed_categories: ToolCategoryValues,
       blocked_categories: [],
-      allowed_risk_levels: [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM],
-      max_risk_level: ToolRiskLevel.HIGH,
-      allowed_capabilities: Object.values(ToolCapability),
+      allowed_risk_levels: ["LOW", "MEDIUM"],
+      max_risk_level: "HIGH",
+      allowed_capabilities: ToolCapabilityValues,
       blocked_capabilities: [],
       allowed_domains: [],
       blocked_domains: [],
@@ -398,7 +400,7 @@ describe("RiskEngine", () => {
     const context = createMockContext();
 
     const result = await riskEngine.evaluate(tool, context);
-    expect(result.risk_level).toBe(ToolRiskLevel.LOW);
+    expect(result.risk_level).toBe("LOW");
     expect(result.blocked).toBe(false);
     expect(result.requires_approval).toBe(false);
   });
@@ -407,41 +409,46 @@ describe("RiskEngine", () => {
     const tool = createMockTool({
       metadata: {
         ...createMockTool().metadata,
-        capabilities: [ToolCapability.PROCESS_EXECUTION],
-        trust_level: ToolTrustLevel.CORE,
+        capabilities: ["process_execution"],
+        // ORGANIZATION trust carries no risk adjustment, isolating the
+        // critical-capability rule (LOW + 2 = HIGH).
+        trust_level: "ORGANIZATION",
       },
     });
     const context = createMockContext();
 
     const result = await riskEngine.evaluate(tool, context);
-    expect(result.risk_level).toBe(ToolRiskLevel.HIGH);
+    expect(result.risk_level).toBe("HIGH");
   });
 
   it("should increase risk for untrusted provider", async () => {
     const tool = createMockTool({
       metadata: {
         ...createMockTool().metadata,
-        trust_level: ToolTrustLevel.UNTRUSTED,
+        // "filesystem" matches no capability rule, isolating the
+        // untrusted-provider rule (LOW + 1 = MEDIUM).
+        capabilities: ["filesystem"],
+        trust_level: "UNTRUSTED",
       },
     });
     const context = createMockContext();
 
     const result = await riskEngine.evaluate(tool, context);
-    expect(result.risk_level).toBe(ToolRiskLevel.MEDIUM);
+    expect(result.risk_level).toBe("MEDIUM");
   });
 
   it("should decrease risk for verified provider", async () => {
     const tool = createMockTool({
       metadata: {
         ...createMockTool().metadata,
-        trust_level: ToolTrustLevel.VERIFIED,
-        risk_level: ToolRiskLevel.MEDIUM,
+        trust_level: "VERIFIED",
+        risk_level: "MEDIUM",
       },
     });
     const context = createMockContext();
 
     const result = await riskEngine.evaluate(tool, context);
-    expect(result.risk_level).toBe(ToolRiskLevel.LOW);
+    expect(result.risk_level).toBe("LOW");
   });
 });
 
@@ -452,19 +459,19 @@ describe("CredentialResolver", () => {
     resolver = new CredentialResolver();
   });
 
-  it("should register and resolve credentials", () => {
+  it("should register and resolve credentials", async () => {
     resolver.registerCredential("org-1", {
       id: "cred-1",
       type: "api_key",
       data: { api_key: "secret-key-123" },
     });
 
-    const result = resolver.resolve(["cred-1"], "org-1");
+    const result = await resolver.resolve(["cred-1"], "org-1");
     expect(result["cred-1"]).toEqual({ api_key: "secret-key-123" });
   });
 
-  it("should return empty for missing credentials", () => {
-    const result = resolver.resolve(["missing-cred"], "org-1");
+  it("should return empty for missing credentials", async () => {
+    const result = await resolver.resolve(["missing-cred"], "org-1");
     expect(result["missing-cred"]).toBeUndefined();
   });
 });
@@ -525,7 +532,7 @@ describe("RateLimiter", () => {
     await limiter.checkLimit("org-1");
 
     const usage = limiter.getUsage("org-1");
-    expect(usage["org-1:concurrent"].used).toBe(2);
+    expect(usage["org:org-1:concurrent"].used).toBe(2);
   });
 
   it("should release concurrent slots", async () => {
@@ -533,7 +540,7 @@ describe("RateLimiter", () => {
     limiter.releaseConcurrent("org-1");
 
     const usage = limiter.getUsage("org-1");
-    expect(usage["org-1:concurrent"].used).toBe(0);
+    expect(usage["org:org-1:concurrent"].used).toBe(0);
   });
 });
 
@@ -572,11 +579,11 @@ describe("BuiltinToolAdapter", () => {
       policy: {
         allowed_tools: [],
         blocked_tools: [],
-        allowed_categories: Object.values(ToolCategory),
+        allowed_categories: ToolCategoryValues,
         blocked_categories: [],
-        allowed_risk_levels: [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM],
-        max_risk_level: ToolRiskLevel.HIGH,
-        allowed_capabilities: Object.values(ToolCapability),
+        allowed_risk_levels: ["LOW", "MEDIUM"],
+        max_risk_level: "HIGH",
+        allowed_capabilities: ToolCapabilityValues,
         blocked_capabilities: [],
         allowed_domains: [],
         blocked_domains: [],
@@ -615,11 +622,11 @@ describe("BuiltinToolAdapter", () => {
       policy: {
         allowed_tools: [],
         blocked_tools: [],
-        allowed_categories: Object.values(ToolCategory),
+        allowed_categories: ToolCategoryValues,
         blocked_categories: [],
-        allowed_risk_levels: [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM],
-        max_risk_level: ToolRiskLevel.HIGH,
-        allowed_capabilities: Object.values(ToolCapability),
+        allowed_risk_levels: ["LOW", "MEDIUM"],
+        max_risk_level: "HIGH",
+        allowed_capabilities: ToolCapabilityValues,
         blocked_capabilities: [],
         allowed_domains: [],
         blocked_domains: [],
@@ -660,11 +667,11 @@ describe("BuiltinToolAdapter", () => {
       policy: {
         allowed_tools: [],
         blocked_tools: [],
-        allowed_categories: Object.values(ToolCategory),
+        allowed_categories: ToolCategoryValues,
         blocked_categories: [],
-        allowed_risk_levels: [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM],
-        max_risk_level: ToolRiskLevel.HIGH,
-        allowed_capabilities: Object.values(ToolCapability),
+        allowed_risk_levels: ["LOW", "MEDIUM"],
+        max_risk_level: "HIGH",
+        allowed_capabilities: ToolCapabilityValues,
         blocked_capabilities: [],
         allowed_domains: [],
         blocked_domains: [],
@@ -706,11 +713,11 @@ describe("BuiltinToolAdapter", () => {
       policy: {
         allowed_tools: [],
         blocked_tools: [],
-        allowed_categories: Object.values(ToolCategory),
+        allowed_categories: ToolCategoryValues,
         blocked_categories: [],
-        allowed_risk_levels: [ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM],
-        max_risk_level: ToolRiskLevel.HIGH,
-        allowed_capabilities: Object.values(ToolCapability),
+        allowed_risk_levels: ["LOW", "MEDIUM"],
+        max_risk_level: "HIGH",
+        allowed_capabilities: ToolCapabilityValues,
         blocked_capabilities: [],
         allowed_domains: [],
         blocked_domains: [],

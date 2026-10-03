@@ -1,18 +1,12 @@
 import { AbstractTransport } from "./transport";
-import {
-  MCPTransportType,
-  MCPServerConfig,
-  MCPRequest,
-  MCPResponse,
-} from "./types";
+import { MCPTransportType, MCPRequest, MCPResponse } from "./types";
 
 export class SSETransport extends AbstractTransport {
   readonly transportType: MCPTransportType = "sse";
-  private baseUrl: string;
+  private baseUrl!: string;
   private sessionId?: string;
   private eventSource?: EventSource;
   private abortController?: AbortController;
-  private readonly defaultTimeout = 30000;
 
   protected async doConnect(): Promise<void> {
     if (!this.config.endpoint) {
@@ -41,8 +35,10 @@ export class SSETransport extends AbstractTransport {
       },
     });
 
-    if (initResponse.result?.sessionId) {
-      this.sessionId = initResponse.result.sessionId;
+    const initResult = initResponse.result as
+      { sessionId?: string } | undefined;
+    if (initResult?.sessionId) {
+      this.sessionId = initResult.sessionId;
     }
 
     await this.connectSSE();
@@ -54,11 +50,10 @@ export class SSETransport extends AbstractTransport {
       url.searchParams.set("session_id", this.sessionId);
     }
 
-    this.eventSource = new EventSource(url.toString(), {
-      headers: {
-        "MCP-Protocol-Version": "2024-11-05",
-      },
-    });
+    // NOTE: EventSource (browser and Node) does not support custom request
+    // headers — the session travels via the `session_id` URL parameter set
+    // above, and protocol versioning is negotiated in the initialize payload.
+    this.eventSource = new EventSource(url.toString());
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -72,7 +67,7 @@ export class SSETransport extends AbstractTransport {
         resolve();
       };
 
-      this.eventSource!.onerror = (error) => {
+      this.eventSource!.onerror = () => {
         clearTimeout(timeout);
         if (this.getState() === "CONNECTING") {
           this.eventSource?.close();
@@ -154,7 +149,7 @@ export class SSETransport extends AbstractTransport {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as MCPResponse;
     this.handleResponse(data);
   }
 

@@ -3,21 +3,10 @@ import {
   MCPTransportType,
   MCPConnectionState,
   MCPServerConfig,
-  MCPInitializeRequest,
-  MCPInitializeResult,
+  MCPRequest,
+  MCPResponse,
+  MCPNotification,
   MCPError,
-  MCPTool,
-  MCPResource,
-  MCPPrompt,
-  MCPContent,
-  MCPToolCall,
-  MCPCallToolResult,
-  MCPListToolsResult,
-  MCPListResourcesResult,
-  MCPReadResourceResult,
-  MCPListPromptsResult,
-  MCPGetPromptResult,
-  MCPCredential,
 } from "./types";
 
 export interface MCPTransport {
@@ -25,29 +14,12 @@ export interface MCPTransport {
   connect(config: MCPServerConfig): Promise<void>;
   disconnect(): Promise<void>;
   send(request: MCPRequest): Promise<MCPResponse>;
-  on(event: "close" | "error", listener: (error?: Error) => void): this;
+  on(
+    event: "close" | "error" | "notification" | "capabilities",
+    listener: (...args: any[]) => void,
+  ): this;
   isConnected(): boolean;
   getState(): MCPConnectionState;
-}
-
-export interface MCPRequest {
-  jsonrpc: "2.0";
-  id: string | number;
-  method: string;
-  params?: unknown;
-}
-
-export interface MCPResponse {
-  jsonrpc: "2.0";
-  id: string | number;
-  result?: unknown;
-  error?: MCPError;
-}
-
-export interface MCPNotification {
-  jsonrpc: "2.0";
-  method: string;
-  params?: unknown;
 }
 
 export abstract class BaseTransport
@@ -57,9 +29,12 @@ export abstract class BaseTransport
   abstract readonly transportType: MCPTransportType;
   protected state: MCPConnectionState = "DISCONNECTED";
   protected requestId = 0;
+  // `any` is deliberate: JSON-RPC results are untyped by design, and the
+  // stored resolver belongs to a `Promise<MCPResponse>` executor whose
+  // callback types are invariant under `strictFunctionTypes`.
   protected pendingRequests = new Map<
     string | number,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
+    { resolve: (value: any) => void; reject: (error: Error) => void }
   >();
 
   abstract connect(config: MCPServerConfig): Promise<void>;
@@ -121,25 +96,21 @@ export class MCPProtocolError extends Error {
 }
 
 export interface MCPTransportFactory {
-  createTransport(
-    type: MCPTransportType,
-    config: MCPServerConfig,
-  ): MCPTransport;
+  createTransport(type: MCPTransportType): MCPTransport;
 }
 
 export function createTransportFactory(): MCPTransportFactory {
   return {
-    createTransport(
-      type: MCPTransportType,
-      config: MCPServerConfig,
-    ): MCPTransport {
+    createTransport(type: MCPTransportType): MCPTransport {
       switch (type) {
+        // Transports take no constructor arguments: configuration arrives
+        // later via connect(config), which stores it as `this.config`.
         case "stdio":
-          return new StdioTransport(config);
+          return new StdioTransport();
         case "streamable_http":
-          return new StreamableHttpTransport(config);
+          return new StreamableHttpTransport();
         case "sse":
-          return new SSETransport(config);
+          return new SSETransport();
         default:
           throw new Error(`Unsupported transport type: ${type}`);
       }
@@ -147,7 +118,7 @@ export function createTransportFactory(): MCPTransportFactory {
   };
 }
 
-abstract class AbstractTransport extends BaseTransport {
+export abstract class AbstractTransport extends BaseTransport {
   protected config!: MCPServerConfig;
   protected connected = false;
 
@@ -164,7 +135,7 @@ abstract class AbstractTransport extends BaseTransport {
     }
   }
 
-  abstract doConnect(): Promise<void>;
+  protected abstract doConnect(): Promise<void>;
 
   async disconnect(): Promise<void> {
     if (!this.connected) return;
@@ -176,7 +147,7 @@ abstract class AbstractTransport extends BaseTransport {
     }
   }
 
-  abstract doDisconnect(): Promise<void>;
+  protected abstract doDisconnect(): Promise<void>;
 
   async send(request: MCPRequest): Promise<MCPResponse> {
     if (!this.connected) {
@@ -189,7 +160,7 @@ abstract class AbstractTransport extends BaseTransport {
     });
   }
 
-  abstract doSend(request: MCPRequest): Promise<void>;
+  protected abstract doSend(request: MCPRequest): Promise<void>;
 }
 
 import { StdioTransport } from "./stdio-transport";

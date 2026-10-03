@@ -2,6 +2,8 @@
 import { Command } from "commander";
 import pc from "picocolors";
 import { registerCommands } from "../commands.js";
+import { registerLocalCommands, printWelcome } from "../localCommands.js";
+import { findProjectDir } from "../local.js";
 import { OpenAgentError } from "../http.js";
 
 const program = new Command();
@@ -20,6 +22,15 @@ program
   .option("--no-color", "disable colored output");
 
 registerCommands(program);
+registerLocalCommands(program);
+
+program.action(() => {
+  if (!findProjectDir()) {
+    printWelcome();
+    return;
+  }
+  program.help();
+});
 
 program.showHelpAfterError("(add --help for usage)");
 

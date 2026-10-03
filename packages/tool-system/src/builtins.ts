@@ -983,7 +983,7 @@ export class BuiltinToolAdapter implements ToolAdapter {
     const precision = (input.precision as number) || 10;
 
     const sanitized = expression.replace(/[^0-9+\-*/().%\s]/g, "");
-    if (sanitized !== expression.replace(/\s/g, "")) {
+    if (sanitized.replace(/\s/g, "") !== expression.replace(/\s/g, "")) {
       throw new Error("Invalid characters in expression");
     }
 

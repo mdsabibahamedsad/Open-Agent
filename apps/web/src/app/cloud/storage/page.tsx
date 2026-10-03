@@ -7,9 +7,7 @@ import { Protected } from '@/components/protected';
 import { PageHeader } from '@/components/ui/page';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, Column } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { fetchCloudStorage, submitCloudExecution } from '@/lib/cloud';
+import { fetchCloudStorage } from '@/lib/cloud';
 
 interface StorageRow { id: string; name: string; size: number; category: string }
 
@@ -62,33 +60,5 @@ export default function CloudStoragePage() {
         </div>
       </Layout>
     </Protected>
-  );
-}
-
-export function CloudExecutionSubmit({ onSubmitted }: { onSubmitted?: (id: string) => void }) {
-  const [cls, setCls] = React.useState('workflow');
-  const [busy, setBusy] = React.useState(false);
-  const [result, setResult] = React.useState('');
-  return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        try {
-          const res = await submitCloudExecution({ execution_class: cls }, crypto.randomUUID());
-          setResult(`${res.execution_id} (${res.status})`);
-          onSubmitted?.(res.execution_id);
-        } catch (err) {
-          setResult(err instanceof Error ? err.message : 'Submit failed');
-        } finally {
-          setBusy(false);
-        }
-      }}
-      className="flex gap-2"
-    >
-      <Input value={cls} onChange={(e) => setCls(e.target.value)} aria-label="Execution class" className="max-w-48" />
-      <Button type="submit" disabled={busy}>{busy ? 'Submitting…' : 'Submit execution'}</Button>
-      {result ? <span className="oa-caption">{result}</span> : null}
-    </form>
   );
 }

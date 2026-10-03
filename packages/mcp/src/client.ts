@@ -1,28 +1,24 @@
 import { EventEmitter } from "events";
-import { MCPTransport, createTransportFactory } from "./transport";
+import {
+  MCPTransport,
+  createTransportFactory,
+  MCPProtocolError,
+} from "./transport";
 import {
   MCPServerConfig,
   MCPConnection,
   MCPConnectionState,
   MCPCapabilities,
-  MCPServerInfo,
-  MCPTool,
-  MCPResource,
-  MCPPrompt,
-  MCPToolCall,
   MCPToolResult,
   MCPListToolsResult,
   MCPListResourcesResult,
   MCPReadResourceResult,
   MCPListPromptsResult,
   MCPGetPromptResult,
-  MCPInitializeResult,
-  MCPError,
-  MCPTransportType,
   MCPCredential,
   MCPHealthRecord,
 } from "./types";
-import { OpenAgentLogger, createChildLogger } from "@openagent/logger";
+import { createChildLogger } from "@openagent/logger";
 
 const logger = createChildLogger({ module: "mcp:client" });
 
@@ -46,7 +42,6 @@ export class MCPClient extends EventEmitter {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private healthCheckInterval?: NodeJS.Timeout;
-  private readonly maxHealthCheckInterval = 60000;
   private readonly minHealthCheckInterval = 5000;
 
   constructor(options: MCPClientOptions) {
@@ -55,7 +50,6 @@ export class MCPClient extends EventEmitter {
     this.credentialResolver = options.credentialResolver;
     this.transport = createTransportFactory().createTransport(
       this.serverConfig.transport,
-      this.serverConfig,
     );
     this.connection = {
       id: crypto.randomUUID(),
@@ -251,6 +245,7 @@ export class MCPClient extends EventEmitter {
     } else {
       logger.error("Max reconnect attempts reached", {
         server_id: this.serverConfig.id,
+        cause: error?.message,
       });
       this.connection.state = "FAILED";
       this.emit("stateChange", "FAILED");
@@ -455,18 +450,6 @@ export class MCPClient extends EventEmitter {
       throw new Error("Cannot refresh capabilities: not connected");
     }
     await this.discoverCapabilities();
-  }
-}
-
-export class MCPProtocolError extends Error {
-  public readonly code: number;
-  public readonly data?: unknown;
-
-  constructor(error: MCPError) {
-    super(error.message);
-    this.name = "MCPProtocolError";
-    this.code = error.code;
-    this.data = error.data;
   }
 }
 

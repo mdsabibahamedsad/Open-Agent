@@ -48,32 +48,32 @@ Agents reason, plan, and use tools; workflows provide deterministic structure wh
 
 Status reflects the actual implementation in this repository.
 
-| Capability | Status | Notes |
-| ---------- | ------ | ----- |
-| AI Agents | ✅ | Runtime, versions, runs, lifecycle |
-| Workflow Automation | ✅ | Visual builder, versioned definitions, executions |
-| Model Routing | ✅ | Multi-provider routing + adapters |
-| Tool Runtime | ✅ | Typed tools, policies, risk levels, execution events |
-| MCP | ✅ | Servers, tools, resources, prompts, policies |
-| Multi-Agent Orchestration | ✅ | Runs, delegation, handoff, budgets |
-| Team Management | ✅ | Managers, contracts, reviews, escalations |
-| Persistent Memory | ✅ | Scoped memory, policies, consolidation |
-| Browser Automation | ✅ | Sessions, policies, artifacts |
-| Coding Agent | ✅ | Repos, workspaces, patches, reviews, PR drafts |
-| Sandbox Execution | ✅ | Profiles, Docker isolation, leases, artifacts |
-| Human Approval | ✅ | Risk engine, policies, escalation, delegation |
-| Evaluation | ✅ | Rubrics, verification, self-correction, quality gates |
-| Integrations | ✅ | 11 official connectors (Gmail, Slack, Discord, Telegram, GitHub, GitLab, Calendar, Drive, Notion, HubSpot, Postgres) + generic HTTP |
-| Templates / Skills / Presets | ✅ | Versioned packages, validation, install/rollback |
-| Marketplace | ✅ | Listings, publishers, reviews, moderation |
-| Billing & Metering | 🚧 | Provider-neutral interfaces + disabled-by-default provider; full ledger/entitlement engine present |
-| Cloud Runtime | ✅ | Workers, queues, placements, artifacts |
-| Enterprise Security | ✅ | SSO, SCIM, RBAC/ABAC, zero-trust policies, audit |
-| Developer SDKs | ✅ | TypeScript + Python + REST client |
-| CLI | ✅ | `openagent` — scaffold, validate, test, package, publish, deploy |
-| Extension System | ✅ | 20 extension types, manifest, signing, local registry |
-| Developer Portal | ✅ | Projects, extensions, API explorer, usage |
-| Desktop App | 🗺️ | Planned (`apps/desktop/` is an empty placeholder) |
+| Capability                   | Status | Notes                                                                                                                               |
+| ---------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| AI Agents                    | ✅     | Runtime, versions, runs, lifecycle                                                                                                  |
+| Workflow Automation          | ✅     | Visual builder, versioned definitions, executions                                                                                   |
+| Model Routing                | ✅     | Multi-provider routing + adapters                                                                                                   |
+| Tool Runtime                 | ✅     | Typed tools, policies, risk levels, execution events                                                                                |
+| MCP                          | ✅     | Servers, tools, resources, prompts, policies                                                                                        |
+| Multi-Agent Orchestration    | ✅     | Runs, delegation, handoff, budgets                                                                                                  |
+| Team Management              | ✅     | Managers, contracts, reviews, escalations                                                                                           |
+| Persistent Memory            | ✅     | Scoped memory, policies, consolidation                                                                                              |
+| Browser Automation           | ✅     | Sessions, policies, artifacts                                                                                                       |
+| Coding Agent                 | ✅     | Repos, workspaces, patches, reviews, PR drafts                                                                                      |
+| Sandbox Execution            | ✅     | Profiles, Docker isolation, leases, artifacts                                                                                       |
+| Human Approval               | ✅     | Risk engine, policies, escalation, delegation                                                                                       |
+| Evaluation                   | ✅     | Rubrics, verification, self-correction, quality gates                                                                               |
+| Integrations                 | ✅     | 11 official connectors (Gmail, Slack, Discord, Telegram, GitHub, GitLab, Calendar, Drive, Notion, HubSpot, Postgres) + generic HTTP |
+| Templates / Skills / Presets | ✅     | Versioned packages, validation, install/rollback                                                                                    |
+| Marketplace                  | ✅     | Listings, publishers, reviews, moderation                                                                                           |
+| Billing & Metering           | 🚧     | Provider-neutral interfaces + disabled-by-default provider; full ledger/entitlement engine present                                  |
+| Cloud Runtime                | ✅     | Workers, queues, placements, artifacts                                                                                              |
+| Enterprise Security          | ✅     | SSO, SCIM, RBAC/ABAC, zero-trust policies, audit                                                                                    |
+| Developer SDKs               | ✅     | TypeScript + Python + REST client                                                                                                   |
+| CLI                          | ✅     | `openagent` — scaffold, validate, test, package, publish, deploy                                                                    |
+| Extension System             | ✅     | 20 extension types, manifest, signing, local registry                                                                               |
+| Developer Portal             | ✅     | Projects, extensions, API explorer, usage                                                                                           |
+| Desktop App                  | 🗺️     | Planned (`apps/desktop/` is an empty placeholder)                                                                                   |
 
 ## Architecture
 
@@ -134,14 +134,52 @@ docker compose up -d
 
 ### Run modes
 
-| Mode | Command | Details |
-| ---- | ------- | ------- |
-| Docker (recommended) | `docker compose up --build` | [docker guide](docs/getting-started/docker.md) |
-| Guided native | `pnpm setup` then `pnpm dev:local` | [non-docker guide](docs/getting-started/non-docker.md) |
-| Hybrid | `pnpm infra:up` then `pnpm dev:local` | [hybrid guide](docs/getting-started/hybrid.md) |
-| Local AI | `ollama serve` + provider config | [local-ai guide](docs/getting-started/local-ai.md) |
+| Mode                 | Command                               | Details                                                |
+| -------------------- | ------------------------------------- | ------------------------------------------------------ |
+| Docker (recommended) | `docker compose up --build`           | [docker guide](docs/getting-started/docker.md)         |
+| Guided native        | `pnpm setup` then `pnpm dev:local`    | [non-docker guide](docs/getting-started/non-docker.md) |
+| Hybrid               | `pnpm infra:up` then `pnpm dev:local` | [hybrid guide](docs/getting-started/hybrid.md)         |
+| Local AI             | `ollama serve` + provider config      | [local-ai guide](docs/getting-started/local-ai.md)     |
 
 Supported: Windows (PowerShell/WSL2), macOS (Apple Silicon + Intel), Linux — each with Docker and non-Docker paths. pnpm 8.15 is canonical; npm can run root scripts after `pnpm install`.
+
+### Automate locally — no Docker required
+
+The CLI is also a local-first automation platform (SQLite/JSON + Ollama + local
+workflow engine). No Docker, no cloud account needed:
+
+```bash
+npm install -g openagent
+
+openagent init
+
+openagent start
+```
+
+Then you get:
+
+```text
+Dashboard → http://localhost:5678
+API       → http://localhost:5678/api
+Webhook   → http://localhost:5678/webhook/:workflowId
+```
+
+Quick-start example (Schedule → Web Search → AI Agent → File):
+
+```bash
+openagent workflow list
+openagent workflow run daily-news-digest
+openagent logs --limit 5
+openagent doctor
+```
+
+`openagent init` creates `.openagent/` (`agents/ workflows/ nodes/ memory/
+credentials/ logs/ schedules/ executions/ workspace/`) plus `openagent.config.ts`.
+Workflows are plain JSON, so they version-control cleanly. With Ollama running
+(`ollama run qwen2.5`), AI nodes use your local model automatically; without a
+reachable model they degrade to a clearly-labeled heuristic fallback instead of
+failing. See `openagent ask --help`, `openagent workflow generate --help`, and
+`openagent autonomous --help` for AI-driven automation.
 
 ### Build an extension in minutes
 
@@ -189,17 +227,17 @@ agent = client.agents.create(
 
 All settings come from environment variables (see [.env.example](.env.example)). The main groups:
 
-| Group | Variables | Notes |
-| ----- | --------- | ----- |
-| App | `OPENAGENT_ENV`, `LOG_LEVEL`, `API_URL`, `WEB_URL` | `development` enables `/docs` |
-| Database | `DATABASE_URL` | PostgreSQL 15+ (`postgresql+asyncpg://…`) |
-| Queue/cache | `REDIS_URL` | Redis 7+ |
-| Security | `SECRET_KEY`, `ENCRYPTION_KEY` | Min 32 chars; never commit real values |
-| CORS | `CORS_ORIGINS` | Allowed web origins |
-| LLM providers | Provider keys per `docs/` | Model Router selects across configured providers |
-| Local models | Ollama-compatible endpoint | Supported via Model Router adapters — see `docs/` |
-| Browser | Playwright/Chromium settings | Policies gate navigation and extraction |
-| Sandbox | Docker image policies, profiles | `TEST`/`BUILD` profiles; host execution refused in production |
+| Group         | Variables                                          | Notes                                                         |
+| ------------- | -------------------------------------------------- | ------------------------------------------------------------- |
+| App           | `OPENAGENT_ENV`, `LOG_LEVEL`, `API_URL`, `WEB_URL` | `development` enables `/docs`                                 |
+| Database      | `DATABASE_URL`                                     | PostgreSQL 15+ (`postgresql+asyncpg://…`)                     |
+| Queue/cache   | `REDIS_URL`                                        | Redis 7+                                                      |
+| Security      | `SECRET_KEY`, `ENCRYPTION_KEY`                     | Min 32 chars; never commit real values                        |
+| CORS          | `CORS_ORIGINS`                                     | Allowed web origins                                           |
+| LLM providers | Provider keys per `docs/`                          | Model Router selects across configured providers              |
+| Local models  | Ollama-compatible endpoint                         | Supported via Model Router adapters — see `docs/`             |
+| Browser       | Playwright/Chromium settings                       | Policies gate navigation and extraction                       |
+| Sandbox       | Docker image policies, profiles                    | `TEST`/`BUILD` profiles; host execution refused in production |
 
 ## Usage
 

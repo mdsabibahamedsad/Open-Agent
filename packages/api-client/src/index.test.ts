@@ -13,13 +13,18 @@ function mockFetchOnce(
   body: unknown,
   headers: Record<string, string> = {},
 ) {
+  // Parameters are typed (not cast away) so `.mock.calls` stays available
+  // to assertions while the mock remains assignable to `typeof fetch`.
   return vi.fn(
-    async () =>
+    async (
+      _url: string | URL | Request,
+      _init?: RequestInit,
+    ): Promise<Response> =>
       new Response(body === undefined ? null : JSON.stringify(body), {
         status,
         headers: { "Content-Type": "application/json", ...headers },
       }),
-  ) as unknown as typeof fetch;
+  );
 }
 
 describe("ApiClient", () => {

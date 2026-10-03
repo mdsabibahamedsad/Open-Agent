@@ -38,6 +38,7 @@ import {
 } from "./validate.js";
 import { scanDirectory, formatFindings } from "./security.js";
 import { packageProject, inspectPackage } from "./packaging.js";
+import { initProject, findProjectDir } from "./local.js";
 
 export interface GlobalFlags {
   json?: boolean;
@@ -58,7 +59,10 @@ function outFrom(
   profileName: string;
 } {
   const go = program.opts<GlobalFlags>();
-  const lo = cmd.opts<GlobalFlags>();
+  // Some actions declare an extra placeholder parameter, so `cmd` may be
+  // undefined at runtime — fall back to global flags in that case.
+  const lo = ((cmd as Command | undefined)?.opts<GlobalFlags>() ??
+    {}) as GlobalFlags;
   const json = lo.json ?? go.json ?? false;
   const quiet = lo.quiet ?? go.quiet ?? false;
   const verbose = lo.verbose ?? go.verbose ?? false;
@@ -221,6 +225,14 @@ export function registerCommands(program: Command): void {
           out,
         );
         printResult({ dir: created, files }, out);
+        // Also ensure the local OpenAgent project layout (.openagent/, config).
+        try {
+          const local = initProject(target);
+          if (local.created.length > 0)
+            okLine(`Initialized OpenAgent project in ${target}.`, out);
+        } catch (e) {
+          printErrorLine(e instanceof Error ? e.message : String(e), out);
+        }
       },
     );
 
@@ -1171,14 +1183,21 @@ export function registerCommands(program: Command): void {
   const mcp = program.command("mcp").description("MCP servers");
   mcp
     .command("list")
-    .description("List MCP servers")
+    .description("List MCP servers (server or local .openagent/mcp.json)")
     .action(async (_o: unknown, cmd: Command) => {
       const out = outFrom(program, cmd);
-      const org = ensureOrg(out);
-      printResult(
-        await out.client.get(out.client.orgPath("/mcp-servers")),
-        out,
-      );
+      try {
+        const org = ensureOrg(out);
+        void org;
+        printResult(
+          await out.client.get(out.client.orgPath("/mcp-servers")),
+          out,
+        );
+      } catch {
+        const dir = findProjectDir() ?? process.cwd();
+        const { listMcpServers } = await import("./local.js");
+        printResult({ servers: listMcpServers(dir), scope: "local" }, out);
+      }
     });
   mcp
     .command("get <id>")
@@ -1218,17 +1237,67 @@ export function registerCommands(program: Command): void {
     );
   mcp
     .command("test <id>")
-    .description("Test MCP server")
+    .description("Test MCP server (server or local entry)")
     .action(async (id: string, _o: unknown, cmd: Command) => {
       const out = outFrom(program, cmd);
-      const org = ensureOrg(out);
-      printResult(
-        await out.client.post(
-          out.client.orgPath(`/mcp-servers/${encodeURIComponent(id)}/test`),
-          {},
-        ),
-        out,
-      );
+      try {
+        const org = ensureOrg(out);
+        void org;
+        printResult(
+          await out.client.post(
+            out.client.orgPath(`/mcp-servers/${encodeURIComponent(id)}/test`),
+            {},
+          ),
+          out,
+        );
+      } catch {
+        const dir = findProjectDir() ?? process.cwd();
+        const { testMcpServer } = await import("./local.js");
+        printResult(await testMcpServer(dir, id), out);
+      }
+    });
+  mcp
+    .command("add <name>")
+    .description("Register a local MCP server (.openagent/mcp.json)")
+    .option("--transport <t>", "stdio|http", "stdio")
+    .option("--command <cmd>", "stdio command")
+    .option("--url <url>", "http endpoint")
+    .action(
+      async (
+        name: string,
+        opts: Record<string, string>,
+        _o: unknown,
+        cmd: Command,
+      ) => {
+        const out = outFrom(program, cmd);
+        const dir = findProjectDir() ?? process.cwd();
+        const { addMcpServer } = await import("./local.js");
+        const id = name.toLowerCase().replace(/[^a-z0-9-_]/g, "-");
+        addMcpServer(dir, {
+          id,
+          name,
+          transport: (opts.transport === "http" ? "http" : "stdio") as
+            "stdio" | "http",
+          command: opts.command,
+          url: opts.url,
+          enabled: true,
+        });
+        okLine(`Registered local MCP server '${name}' (${id}).`, out);
+      },
+    );
+  mcp
+    .command("remove <id>")
+    .description("Remove a local MCP server")
+    .action(async (id: string, _o: unknown, cmd: Command) => {
+      const out = outFrom(program, cmd);
+      const dir = findProjectDir() ?? process.cwd();
+      const { removeMcpServer } = await import("./local.js");
+      if (!removeMcpServer(dir, id)) {
+        printErrorLine(`MCP server '${id}' not found.`, out);
+        process.exitCode = 1;
+        return;
+      }
+      okLine(`Removed MCP server '${id}'.`, out);
     });
 
   const skills = program.command("skills").description("Skills");
@@ -1466,18 +1535,31 @@ export function registerCommands(program: Command): void {
   // ---------- logs / runs ----------
   program
     .command("logs")
-    .description("List recent runs (org /runs)")
+    .description("List recent runs (server, or local .openagent/executions)")
     .option("--limit <n>", "max items", "50")
-    .action(async (opts: Record<string, string>, _o: unknown, cmd: Command) => {
+    .action(async (opts: Record<string, string>, cmd: Command) => {
       const out = outFrom(program, cmd);
-      const org = ensureOrg(out);
-      printResult(
-        await out.client.paginate(out.client.orgPath("/runs"), {
-          params: { page_size: 50 },
-          limit: Number(opts.limit ?? 50),
-        }),
-        out,
-      );
+      try {
+        const org = ensureOrg(out);
+        void org;
+        printResult(
+          await out.client.paginate(out.client.orgPath("/runs"), {
+            params: { page_size: 50 },
+            limit: Number(opts.limit ?? 50),
+          }),
+          out,
+        );
+      } catch {
+        const dir = findProjectDir() ?? process.cwd();
+        const { listExecutionsLocal } = await import("./local.js");
+        printResult(
+          {
+            executions: listExecutionsLocal(dir, Number(opts.limit ?? 50)),
+            scope: "local",
+          },
+          out,
+        );
+      }
     });
   const runs = program.command("runs").description("Runs");
   runs
@@ -1557,10 +1639,66 @@ export function registerCommands(program: Command): void {
         key: string,
         value: string,
         opts: Record<string, string>,
-        _o: unknown,
         cmd: Command,
       ) => {
         const out = outFrom(program, cmd);
+        // Local project settings take precedence when the full key matches
+        // (spec: `openagent config set model.provider ollama`).
+        const localKeys = [
+          "model.provider",
+          "model.name",
+          "server.port",
+          "OPENAI_API_KEY",
+        ];
+        if (
+          localKeys.includes(key) ||
+          (/^[A-Z][A-Z0-9_]*$/.test(key) &&
+            !["APIURL", "APIKEY", "ORGID"].includes(key))
+        ) {
+          const { findProjectDir: findDir } = await import("./local.js");
+          const dir = findDir() ?? process.cwd();
+          if (key === "server.port") {
+            const cfgPath = path.join(dir, ".openagent", "config.json");
+            fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+            let cur: Record<string, unknown> = {};
+            try {
+              cur = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Record<
+                string,
+                unknown
+              >;
+            } catch {
+              cur = {};
+            }
+            (cur as Record<string, Record<string, unknown>>).server = {
+              ...((cur.server as Record<string, unknown>) ?? {}),
+              port: Number(value),
+            };
+            fs.writeFileSync(cfgPath, JSON.stringify(cur, null, 2));
+          } else if (key === "model.provider" || key === "model.name") {
+            const cfgPath = path.join(dir, ".openagent", "config.json");
+            fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+            let cur: Record<string, unknown> = {};
+            try {
+              cur = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as Record<
+                string,
+                unknown
+              >;
+            } catch {
+              cur = {};
+            }
+            (cur as Record<string, Record<string, unknown>>).ai = {
+              ...((cur.ai as Record<string, unknown>) ?? {}),
+              [key === "model.provider" ? "provider" : "model"]: value,
+            };
+            fs.writeFileSync(cfgPath, JSON.stringify(cur, null, 2));
+          } else {
+            const { FileCredentialResolver } =
+              await import("@openagent/workflow-engine");
+            new FileCredentialResolver(dir).set(key, value);
+          }
+          okLine(`Set ${key}.`, out);
+          return;
+        }
         let profileName = opts.profile ?? out.profileName;
         let field = key;
         if (key.includes(".") && !opts.profile) {
@@ -1570,7 +1708,7 @@ export function registerCommands(program: Command): void {
         }
         if (!["apiUrl", "apiKey", "orgId"].includes(field)) {
           printErrorLine(
-            `Unknown key '${field}'. Allowed: apiUrl, apiKey, orgId.`,
+            `Unknown key '${field}'. Allowed: apiUrl, apiKey, orgId, model.provider, model.name, server.port, OPENAI_API_KEY.`,
             out,
           );
           process.exitCode = 2;
@@ -1657,6 +1795,31 @@ export function registerCommands(program: Command): void {
         detail:
           "sandbox execution is server-side only; CLI never runs untrusted code locally",
       });
+      // Local platform checks (Ollama, models, browser, ports, filesystem).
+      try {
+        const { runDoctor } = await import("./local.js");
+        const local = await runDoctor(findProjectDir());
+        for (const c of local) {
+          if (["Node.js", "npm", "project", "filesystem"].includes(c.name))
+            continue;
+          checks.push({
+            name: c.name,
+            ok: c.ok,
+            detail: c.fix ? `${c.detail} — fix: ${c.fix}` : c.detail,
+          });
+        }
+        if (!out.quiet && !out.json) {
+          process.stdout.write("\nOpenAgent Doctor\n\n");
+          for (const c of checks) {
+            process.stdout.write(
+              `${c.ok ? "✓" : "✗"} ${c.name}: ${c.detail}\n`,
+            );
+          }
+          process.stdout.write("\n");
+        }
+      } catch {
+        // local checks are best-effort
+      }
       printResult({ checks, allOk: checks.every((c) => c.ok) }, out);
       if (!checks.every((c) => c.ok)) process.exitCode = 1;
     });

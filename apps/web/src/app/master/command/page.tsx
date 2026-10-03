@@ -11,7 +11,9 @@ import { DataTable, Column } from '@/components/ui/table';
 import { fetchPlatformOverview, fetchPlatformFlags, fetchPlatformBackups } from '@/lib/operations';
 
 export default function CommandCenterPage() {
-  const [overview, setOverview] = React.useState<{ health: { status: string }; open_alerts: number; open_incidents: number; audit_chain: string } | null>(null);
+  // `health` stays `unknown` (matching fetchPlatformOverview): the render
+  // site narrows it with a cast because the payload shape varies by backend.
+  const [overview, setOverview] = React.useState<{ health: unknown; open_alerts: number; open_incidents: number; audit_chain: string } | null>(null);
   const [flags, setFlags] = React.useState<{ key: string; scope: string; enabled: boolean; strategy: string }[]>([]);
   const [backups, setBackups] = React.useState<Record<string, { status: string }>>({});
   const [error, setError] = React.useState<string | null>(null);

@@ -1,11 +1,6 @@
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { AbstractTransport } from "./transport";
-import {
-  MCPTransportType,
-  MCPServerConfig,
-  MCPRequest,
-  MCPResponse,
-} from "./types";
+import { MCPTransportType, MCPRequest } from "./types";
 
 export class StdioTransport extends AbstractTransport {
   readonly transportType: MCPTransportType = "stdio";
@@ -31,28 +26,34 @@ export class StdioTransport extends AbstractTransport {
     }
 
     const env = this.buildEnvironment();
-
-    this.process = spawn(commandPath, this.config.args || [], {
-      cwd: this.config.configuration?.working_directory || process.cwd(),
+    const workingDir = this.config.configuration?.working_directory;
+    const child = spawn(commandPath, this.config.args || [], {
+      cwd:
+        typeof workingDir === "string" && workingDir
+          ? workingDir
+          : process.cwd(),
       env,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    this.process = child;
 
-    this.process.stdout.on("data", (data: Buffer) => {
+    child.stdout.on("data", (data: Buffer) => {
       this.handleData(data.toString());
     });
 
-    this.process.stderr.on("data", (data: Buffer) => {
+    child.stderr.on("data", (data: Buffer) => {
       this.handleError(data.toString());
     });
 
-    this.process.on("error", (error: Error) => {
+    child.on("error", (error: Error) => {
       this.emit("error", error);
     });
 
-    this.process.on("exit", (code: number | null, signal: string | null) => {
+    child.on("exit", (code: number | null, signal: string | null) => {
       this.connected = false;
-      this.setState(code === 0 ? "DISCONNECTED" : "ERROR");
+      // "ERROR" is a server status, not a connection state — an abnormal
+      // exit means the connection FAILED.
+      this.setState(code === 0 ? "DISCONNECTED" : "FAILED");
       this.emit(
         "close",
         new Error(`Process exited with code ${code}, signal ${signal}`),
@@ -69,7 +70,7 @@ export class StdioTransport extends AbstractTransport {
           clearTimeout(timeout);
           resolve();
         } else if (
-          this.getState() === "ERROR" ||
+          this.getState() === "FAILED" ||
           this.getState() === "DISCONNECTED"
         ) {
           clearTimeout(timeout);
@@ -83,18 +84,19 @@ export class StdioTransport extends AbstractTransport {
   }
 
   protected async doDisconnect(): Promise<void> {
-    if (this.process && !this.process.killed) {
-      this.process.kill("SIGTERM");
+    const proc = this.process;
+    if (proc && !proc.killed) {
+      proc.kill("SIGTERM");
 
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(() => {
-          if (this.process && !this.process.killed) {
-            this.process.kill("SIGKILL");
+          if (!proc.killed) {
+            proc.kill("SIGKILL");
           }
           resolve();
         }, 5000);
 
-        this.process!.once("exit", () => {
+        proc.once("exit", () => {
           clearTimeout(timeout);
           resolve();
         });

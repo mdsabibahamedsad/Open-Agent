@@ -1,19 +1,11 @@
 import { AbstractTransport } from "./transport";
-import {
-  MCPTransportType,
-  MCPServerConfig,
-  MCPRequest,
-  MCPResponse,
-  MCPCredential,
-} from "./types";
+import { MCPTransportType, MCPRequest, MCPResponse } from "./types";
 
 export class StreamableHttpTransport extends AbstractTransport {
   readonly transportType: MCPTransportType = "streamable_http";
-  private baseUrl: string;
+  private baseUrl!: string;
   private sessionId?: string;
   private abortController?: AbortController;
-  private readonly defaultTimeout = 30000;
-  private readonly maxResponseSize = 10 * 1024 * 1024;
 
   protected async doConnect(): Promise<void> {
     if (!this.config.endpoint) {
@@ -52,9 +44,11 @@ export class StreamableHttpTransport extends AbstractTransport {
       },
     });
 
+    const result = response.result as
+      { sessionId?: string; capabilities?: unknown } | undefined;
     return {
-      sessionId: response.result?.sessionId,
-      capabilities: response.result?.capabilities,
+      sessionId: result?.sessionId,
+      capabilities: result?.capabilities,
     };
   }
 
@@ -129,7 +123,7 @@ export class StreamableHttpTransport extends AbstractTransport {
       if (contentType.includes("text/event-stream")) {
         await this.handleStreamResponse(response, request.id);
       } else {
-        const data = await response.json();
+        const data = (await response.json()) as MCPResponse;
         this.handleResponse(data);
       }
     } catch (error) {

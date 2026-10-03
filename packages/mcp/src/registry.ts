@@ -5,27 +5,21 @@ import {
   MCPServerConfig,
   MCPServerScope,
   MCPTrustLevel,
-  MCPTransportType,
   MCPCapabilities,
-  MCPTool,
+  MCPCredential,
   MCPHealthRecord,
   MCPInstallationRequest,
   MCPConnectionTestResult,
   MCPRefreshResult,
   MCPPolicy,
-  MCPErrorCodes,
 } from "./types";
-import { ToolRegistry } from "../tool-system/src/registry";
-import { ToolExecutionRuntime } from "../tool-system/src/execution";
 import {
-  ToolDefinition,
-  ToolCategory,
-  ToolLifecycleStatus,
-} from "../tool-system/src/types";
-import { PolicyEngine } from "../tool-system/src/policy";
-import { RiskEngine } from "../tool-system/src/risk";
-import { CredentialResolver } from "../tool-system/src/credentials";
-import { OpenAgentLogger, createChildLogger } from "@openagent/logger";
+  ToolRegistry,
+  ToolExecutionRuntime,
+  PolicyEngine,
+  RiskEngine,
+} from "@openagent/tool-system";
+import { createChildLogger } from "@openagent/logger";
 
 const logger = createChildLogger({ module: "mcp:registry" });
 
@@ -34,7 +28,10 @@ export interface MCPServerRegistryOptions {
   executionRuntime: ToolExecutionRuntime;
   policyEngine: PolicyEngine;
   riskEngine: RiskEngine;
-  credentialResolver: CredentialResolver;
+  // Single-credential resolver (deliberately NOT the tool-system bulk
+  // CredentialResolver class, whose resolve() takes references+org and
+  // returns a record — a different contract).
+  credentialResolver: (credentialId: string) => Promise<MCPCredential | null>;
 }
 
 export interface MCPServerRecord extends MCPServerConfig {
@@ -50,8 +47,6 @@ export class MCPServerRegistry extends EventEmitter {
   private clientManager: MCPClientManager;
   private toolRegistry: ToolRegistry;
   private executionRuntime: ToolExecutionRuntime;
-  private policyEngine: PolicyEngine;
-  private riskEngine: RiskEngine;
   private servers = new Map<string, MCPServerRecord>();
   private adapters = new Map<
     string,
@@ -64,13 +59,8 @@ export class MCPServerRegistry extends EventEmitter {
     super();
     this.toolRegistry = options.toolRegistry;
     this.executionRuntime = options.executionRuntime;
-    this.policyEngine = options.policyEngine;
-    this.riskEngine = options.riskEngine;
 
-    this.clientManager = new MCPClientManager(async (credentialId) => {
-      const cred = await options.credentialResolver.resolve(credentialId);
-      return cred as unknown as import("./types").MCPCredential;
-    });
+    this.clientManager = new MCPClientManager(options.credentialResolver);
 
     this.setupClientManagerListeners();
   }
@@ -95,7 +85,7 @@ export class MCPServerRegistry extends EventEmitter {
   async installServer(
     request: MCPInstallationRequest,
     organizationId: string,
-    userId: string,
+    _userId: string,
   ): Promise<MCPServerRecord> {
     // Validate request
     this.validateInstallationRequest(request);
@@ -243,11 +233,11 @@ export class MCPServerRegistry extends EventEmitter {
     const client = await this.clientManager.createClient(server);
     await client.connect();
 
-    // Create tool adapter
+    // Create tool adapter (the adapter looks tools up through the
+    // registry at execution time; no client handle is passed yet)
     const adapter = new MCPToolAdapter({
       serverId,
       serverName: server.name,
-      client,
     });
 
     // Register tools
@@ -517,7 +507,7 @@ export class MCPServerRegistry extends EventEmitter {
 
   private async handleCapabilitiesChange(
     serverId: string,
-    capabilities: import("./types").MCPCapabilities,
+    capabilities: MCPCapabilities,
   ): Promise<void> {
     // Auto-refresh tools if tools capability changed
     if (capabilities.tools) {

@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, toUserMessage } from '@/lib/api';
-import { useOrganization } from '@/context/OrganizationContext';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, toUserMessage } from "@/lib/api";
+import { useOrganization } from "@/context/OrganizationContext";
 import type {
   AgentMessage,
   OrchestrationEvent,
   OrchestrationSummary,
   OrchestrationTask,
   RunAgentGroup,
-} from './types';
-import { TERMINAL_RUN_STATUSES } from './types';
+} from "./types";
+import { TERMINAL_RUN_STATUSES } from "./types";
 
 interface Paginated<T> {
   data: T[];
@@ -22,25 +22,38 @@ function base(orgId: string | null): string {
 }
 
 export const orchKeys = {
-  all: ['orchestrations'] as const,
-  list: (org: string | null, params?: object) => ['orchestrations', 'list', org, params] as const,
-  detail: (org: string | null, id: string) => ['orchestrations', 'detail', org, id] as const,
-  tasks: (org: string | null, id: string) => ['orchestrations', 'tasks', org, id] as const,
-  agents: (org: string | null, id: string) => ['orchestrations', 'agents', org, id] as const,
-  messages: (org: string | null, id: string) => ['orchestrations', 'messages', org, id] as const,
-  events: (org: string | null, id: string) => ['orchestrations', 'events', org, id] as const,
+  all: ["orchestrations"] as const,
+  list: (org: string | null, params?: object) =>
+    ["orchestrations", "list", org, params] as const,
+  detail: (org: string | null, id: string) =>
+    ["orchestrations", "detail", org, id] as const,
+  tasks: (org: string | null, id: string) =>
+    ["orchestrations", "tasks", org, id] as const,
+  agents: (org: string | null, id: string) =>
+    ["orchestrations", "agents", org, id] as const,
+  messages: (org: string | null, id: string) =>
+    ["orchestrations", "messages", org, id] as const,
+  events: (org: string | null, id: string) =>
+    ["orchestrations", "events", org, id] as const,
 };
 
-export function useOrchestrations(params?: { status?: string; page?: number; pageSize?: number }) {
+export function useOrchestrations(params?: {
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const { currentOrgId } = useOrganization();
   const query = useQuery({
     queryKey: orchKeys.list(currentOrgId, params),
     queryFn: async () => {
-      const res = await api.get<Paginated<OrchestrationSummary>>(base(currentOrgId), {
-        status: params?.status || undefined,
-        page: params?.page ?? 1,
-        page_size: params?.pageSize ?? 20,
-      });
+      const res = await api.get<Paginated<OrchestrationSummary>>(
+        base(currentOrgId),
+        {
+          status: params?.status || undefined,
+          page: params?.page ?? 1,
+          page_size: params?.pageSize ?? 20,
+        },
+      );
       return { items: res.data ?? [], total: res.meta?.total_items ?? 0 };
     },
     enabled: !!currentOrgId,
@@ -79,11 +92,14 @@ export function useOrchestrationTasks(id: string) {
   const { currentOrgId } = useOrganization();
   const query = useQuery({
     queryKey: orchKeys.tasks(currentOrgId, id),
-    queryFn: () => api.get<OrchestrationTask[]>(`${base(currentOrgId)}/${id}/tasks`),
+    queryFn: () =>
+      api.get<OrchestrationTask[]>(`${base(currentOrgId)}/${id}/tasks`),
     enabled: !!currentOrgId && !!id,
     refetchInterval: 3000,
   });
-  const items = Array.isArray(query.data) ? query.data : ((query.data as unknown as { data?: OrchestrationTask[] })?.data ?? []);
+  const items = Array.isArray(query.data)
+    ? query.data
+    : ((query.data as unknown as { data?: OrchestrationTask[] })?.data ?? []);
   return {
     tasks: items,
     isLoading: query.isLoading,
@@ -96,7 +112,8 @@ export function useOrchestrationAgents(id: string) {
   const { currentOrgId } = useOrganization();
   const query = useQuery({
     queryKey: orchKeys.agents(currentOrgId, id),
-    queryFn: () => api.get<{ data: RunAgentGroup[] }>(`${base(currentOrgId)}/${id}/agents`),
+    queryFn: () =>
+      api.get<{ data: RunAgentGroup[] }>(`${base(currentOrgId)}/${id}/agents`),
     enabled: !!currentOrgId && !!id,
     refetchInterval: 3000,
   });
@@ -107,7 +124,8 @@ export function useOrchestrationMessages(id: string) {
   const { currentOrgId } = useOrganization();
   const query = useQuery({
     queryKey: orchKeys.messages(currentOrgId, id),
-    queryFn: () => api.get<AgentMessage[]>(`${base(currentOrgId)}/${id}/messages`),
+    queryFn: () =>
+      api.get<AgentMessage[]>(`${base(currentOrgId)}/${id}/messages`),
     enabled: !!currentOrgId && !!id,
     refetchInterval: 5000,
   });
@@ -119,7 +137,8 @@ export function useOrchestrationEvents(id: string) {
   const { currentOrgId } = useOrganization();
   const query = useQuery({
     queryKey: orchKeys.events(currentOrgId, id),
-    queryFn: () => api.get<OrchestrationEvent[]>(`${base(currentOrgId)}/${id}/events`),
+    queryFn: () =>
+      api.get<OrchestrationEvent[]>(`${base(currentOrgId)}/${id}/events`),
     enabled: !!currentOrgId && !!id,
     refetchInterval: 5000,
   });
@@ -135,17 +154,19 @@ export function useOrchestrationMutations(id: string) {
     void qc.invalidateQueries({ queryKey: orchKeys.tasks(currentOrgId, id) });
     void qc.invalidateQueries({ queryKey: orchKeys.events(currentOrgId, id) });
   };
-  const mk = (path: string) =>
+  // Hooks must be unconditional: build each mutation explicitly via a
+  // properly-named custom hook (same call order on every render).
+  const useOrchMutation = (path: string) =>
     useMutation({
-      mutationFn: (body?: unknown) => api.post(`${base(currentOrgId)}/${id}${path}`, body ?? {}),
+      mutationFn: (body?: unknown) =>
+        api.post(`${base(currentOrgId)}/${id}${path}`, body ?? {}),
       onSettled: invalidate,
     });
   return {
-    // Hooks must be unconditional: build each mutation explicitly.
-    start: mk('/start'),
-    pause: mk('/pause'),
-    resume: mk('/resume'),
-    cancel: mk('/cancel'),
+    start: useOrchMutation("/start"),
+    pause: useOrchMutation("/pause"),
+    resume: useOrchMutation("/resume"),
+    cancel: useOrchMutation("/cancel"),
   };
 }
 
@@ -165,7 +186,9 @@ export function useTaskMutations(runId: string) {
   const { currentOrgId } = useOrganization();
   const qc = useQueryClient();
   const invalidate = () => {
-    void qc.invalidateQueries({ queryKey: orchKeys.tasks(currentOrgId, runId) });
+    void qc.invalidateQueries({
+      queryKey: orchKeys.tasks(currentOrgId, runId),
+    });
   };
   return {
     retry: useMutation({
@@ -175,9 +198,12 @@ export function useTaskMutations(runId: string) {
     }),
     reassign: useMutation({
       mutationFn: (input: { taskId: string; agent_id: string }) =>
-        api.post(`${base(currentOrgId)}/${runId}/tasks/${input.taskId}/reassign`, {
-          agent_id: input.agent_id,
-        }),
+        api.post(
+          `${base(currentOrgId)}/${runId}/tasks/${input.taskId}/reassign`,
+          {
+            agent_id: input.agent_id,
+          },
+        ),
       onSettled: invalidate,
     }),
   };

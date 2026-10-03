@@ -34,8 +34,27 @@ export interface MCPServerConfig {
   trust_level: MCPTrustLevel;
   enabled: boolean;
   metadata?: Record<string, unknown>;
+  // Transport-specific runtime settings (working directory, allowlists,
+  // injected auth headers). Written by the client, read by transports.
+  configuration?: Record<string, unknown>;
   created_at: Date;
   updated_at: Date;
+}
+
+export type MCPCredentialType =
+  "api_key" | "bearer_token" | "basic_auth" | "oauth_token";
+
+export interface MCPCredentialData {
+  api_key?: string;
+  token?: string;
+  username?: string;
+  password?: string;
+  access_token?: string;
+}
+
+export interface MCPCredential {
+  type: MCPCredentialType;
+  data: MCPCredentialData;
 }
 
 export interface MCPServerVersion {
@@ -252,6 +271,26 @@ export interface MCPError {
   code: number;
   message: string;
   data?: unknown;
+}
+
+export interface MCPRequest {
+  jsonrpc: "2.0";
+  id: string | number;
+  method: string;
+  params?: unknown;
+}
+
+export interface MCPResponse {
+  jsonrpc: "2.0";
+  id: string | number;
+  result?: unknown;
+  error?: MCPError;
+}
+
+export interface MCPNotification {
+  jsonrpc: "2.0";
+  method: string;
+  params?: unknown;
 }
 
 export interface MCPErrorCodes {

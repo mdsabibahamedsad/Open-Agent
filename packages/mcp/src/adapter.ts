@@ -89,7 +89,7 @@ export class MCPToolAdapter implements ToolAdapter {
   }
 
   async execute(
-    context: ToolExecutionContext,
+    _context: ToolExecutionContext,
     _input: Record<string, unknown>,
   ): Promise<ToolResult> {
     // In a real implementation, this would call the actual MCP client
@@ -116,24 +116,12 @@ export class MCPToolAdapter implements ToolAdapter {
     });
   }
 
-  async healthCheck(toolId: string): Promise<{
+  async healthCheck(_toolId: string): Promise<{
     status: "HEALTHY" | "DEGRADED" | "UNAVAILABLE";
     latency_ms: number;
   }> {
     const startTime = Date.now();
     return { status: "UNAVAILABLE", latency_ms: Date.now() - startTime };
-  }
-}
-
-export class MCPProtocolError extends Error {
-  public readonly code: number;
-
-  constructor(
-    public readonly error: { code: number; message: string; data?: unknown },
-  ) {
-    super(error.message);
-    this.name = "MCPProtocolError";
-    this.code = error.code;
   }
 }
 
@@ -184,7 +172,7 @@ export async function createMCPToolAdapter(
         server_id: serverId,
       });
     },
-    async healthCheck(toolId: string) {
+    async healthCheck(_toolId: string) {
       const startTime = Date.now();
       return { status: "UNAVAILABLE", latency_ms: Date.now() - startTime };
     },

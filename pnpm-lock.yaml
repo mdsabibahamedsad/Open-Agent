@@ -186,6 +186,9 @@ importers:
       '@openagent/developer-tools':
         specifier: workspace:*
         version: link:../developer-tools
+      '@openagent/workflow-engine':
+        specifier: workspace:*
+        version: link:../workflow-engine
       commander:
         specifier: ^12.0.0
         version: 12.1.0
