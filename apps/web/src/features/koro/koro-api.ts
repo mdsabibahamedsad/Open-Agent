@@ -187,7 +187,7 @@ export interface ProviderProbe {
 }
 
 function base(orgId: string | null): string {
-  return `/organizations/${orgId}/copilot`;
+  return `/organizations/${encodeURIComponent(orgId ?? '')}/copilot`;
 }
 
 export function useKoroStatus(enabled = true) {
@@ -275,10 +275,15 @@ export function useAssistantConversation(id: string | null) {
   const { currentOrgId } = useOrganization();
   return useQuery({
     queryKey: ['koro', 'conversation', currentOrgId, id],
-    queryFn: () =>
-      api.get<AssistantConversationDetail>(`${base(currentOrgId)}/conversations/${id}`),
+    queryFn: ({ signal }) =>
+      api.get<AssistantConversationDetail>(
+        `${base(currentOrgId)}/conversations/${encodeURIComponent(id ?? '')}`,
+        undefined,
+        { signal },
+      ),
     enabled: !!currentOrgId && !!id,
     staleTime: 0,
+    gcTime: 0,
     retry: false,
   });
 }
@@ -289,7 +294,7 @@ export function useRenameAssistantConversation() {
   return useMutation({
     mutationFn: (input: { id: string; title: string }) =>
       api.patch<AssistantConversation>(
-        `${base(currentOrgId)}/conversations/${input.id}`,
+        `${base(currentOrgId)}/conversations/${encodeURIComponent(input.id)}`,
         { title: input.title },
       ),
     onSuccess: () => {
@@ -298,16 +303,40 @@ export function useRenameAssistantConversation() {
   });
 }
 
+export type DeleteAssistantConversationInput =
+  | string
+  | {
+      id: string;
+      orgId?: string | null;
+    };
+
 export function useDeleteAssistantConversation() {
   const { currentOrgId } = useOrganization();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api.delete<{ deleted: boolean; conversation_id: string }>(
-        `${base(currentOrgId)}/conversations/${id}`,
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['koro', 'conversations'] });
+    mutationFn: async (input: DeleteAssistantConversationInput) => {
+      const id = typeof input === 'string' ? input : input.id;
+      const orgId = typeof input === 'string' ? currentOrgId : (input.orgId ?? currentOrgId);
+      const result = await api.delete<{ deleted: boolean; conversation_id: string }>(
+        `${base(orgId)}/conversations/${encodeURIComponent(id)}`,
+      );
+      return { ...result, orgId, requestedId: id };
+    },
+    onSuccess: (data) => {
+      const normalizedId = data.requestedId.trim().toLowerCase();
+      void queryClient.invalidateQueries({
+        queryKey: ['koro', 'conversations', data.orgId],
+      });
+      queryClient.removeQueries({
+        queryKey: ['koro', 'conversation', data.orgId],
+        predicate: (query) => {
+          const cachedId = query.queryKey[3];
+          return (
+            cachedId === data.requestedId ||
+            (typeof cachedId === 'string' && cachedId.trim().toLowerCase() === normalizedId)
+          );
+        },
+      });
     },
   });
 }

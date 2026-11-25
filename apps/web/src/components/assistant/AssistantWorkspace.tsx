@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Bot,
@@ -45,6 +46,7 @@ import {
   useDeleteAssistantConversation,
   useKoroStatus,
   useRenameAssistantConversation,
+  type AssistantConversationDetail,
 } from '@/features/koro/koro-api';
 import { useChatModelOverride } from '@/features/koro/use-chat-model';
 import { buildKoroContext } from '@/features/koro/context';
@@ -67,6 +69,81 @@ import {
   transcriptMarkdown,
 } from '@/features/assistant/chat-list';
 import type { MentionResource } from '@/features/assistant/mentions';
+import {
+  MISSING_CONVERSATION_NOTICE,
+  buildAssistantUrl,
+  currentRelativeUrl,
+  isMissingConversationError,
+  normalizeConversationId,
+  parseAssistantUrlState,
+  type AssistantUrlUpdates,
+} from '@/features/assistant/url-state';
+
+function syncAssistantUrl(updates: AssistantUrlUpdates, mode: 'push' | 'replace') {
+  if (typeof window === 'undefined') return;
+  const current = currentRelativeUrl(window.location);
+  const next = buildAssistantUrl(window.location, updates);
+  if (next === current) return;
+  // Pass null so Next.js App Router's patched History API preserves internal
+  // state (__NA/__PRIVATE_NEXTJS_INTERNALS_TREE) and syncs useSearchParams().
+  if (mode === 'push') {
+    window.history.pushState(null, '', next);
+  } else {
+    window.history.replaceState(null, '', next);
+  }
+}
+
+interface ActiveConversation {
+  id: string;
+  orgId: string | null;
+}
+
+interface PendingTurnExpectation {
+  /** Snapshot already cached when the turn completed (never replay as fresh). */
+  staleSnapshot: AssistantConversationDetail | null;
+  /** Monotonic minimum server message_count expected after this turn. */
+  minMessageCount: number;
+  /** User message content persisted by this turn (matches API 4000-char cap). */
+  userContent: string;
+  /** Earliest index at which this turn's user+assistant pair must appear. */
+  minTurnStartIndex: number;
+}
+
+interface TranscriptSyncState {
+  verifiedId: string | null;
+  serverMessageCount: number;
+  pendingTurn: PendingTurnExpectation | null;
+  preserveLocalEntries: boolean;
+}
+
+function isSnapshotFreshForPendingTurn(
+  snapshot: AssistantConversationDetail,
+  pending: PendingTurnExpectation,
+): boolean {
+  if (pending.staleSnapshot && snapshot === pending.staleSnapshot) {
+    return false;
+  }
+  const totalCount = Math.max(snapshot.message_count, snapshot.messages.length);
+  if (totalCount < pending.minMessageCount) {
+    return false;
+  }
+  // GET /conversations/{id} uses order_by(created_at.asc()).limit(200), so
+  // truncated snapshots omit newly appended turns and must not overwrite them.
+  if (snapshot.message_count > snapshot.messages.length) {
+    return false;
+  }
+  const start = Math.min(pending.minTurnStartIndex, snapshot.messages.length);
+  for (let i = start; i < snapshot.messages.length - 1; i += 1) {
+    if (
+      snapshot.messages[i].role === 'user' &&
+      snapshot.messages[i].content === pending.userContent &&
+      snapshot.messages[i + 1].role === 'assistant'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /** One rendered line of the conversation (live or replayed from history). */
 type Entry = {
@@ -111,27 +188,28 @@ function relativeTime(iso: string): string {
 
 export function AssistantWorkspace() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const searchParamsKey = searchParams.toString();
+  const { currentOrgId } = useOrganization();
   const conversations = useAssistantConversations();
-  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [activeSession, setActiveSession] = React.useState<ActiveConversation | null>(null);
   // Bumped only when the user switches chats, so sending the first message
   // (which creates a transcript id) does not drop the chosen model.
   const [chatEpoch, setChatEpoch] = React.useState(0);
   const { override, setOverride } = useChatModelOverride(String(chatEpoch));
-  const detail = useAssistantConversation(activeId);
-  const { currentOrgId } = useOrganization();
   const [busy, setBusy] = React.useState(false);
   const status = useKoroStatus(true);
   const rename = useRenameAssistantConversation();
   const remove = useDeleteAssistantConversation();
   const workflows = useWorkflows({ pageSize: 50 });
   const credentials = useCredentials();
-  const abortRef = React.useRef<AbortController | null>(null);
   const robot = useRobotCompanion();
 
   const [entries, setEntries] = React.useState<Entry[]>([]);
   const [draft, setDraft] = React.useState('');
   const [mode, setMode] = React.useState<ComposerMode>('build');
   const [error, setError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = React.useState(true);
   const [robotOpen, setRobotOpen] = useLocalStorage<boolean>('oa:assistant-robot-open', true);
   const [mobileRobotOpen, setMobileRobotOpen] = React.useState(false);
@@ -141,22 +219,205 @@ export function AssistantWorkspace() {
   const [pinned, setPinned] = useLocalStorage<string[]>('oa:assistant-pinned', []);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  // Legacy routes forward to /assistant?prompt=...; prefill the composer with
-  // that intent and drop the param so a reload does not overwrite typing.
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const prompt = params.get('prompt');
-    if (!prompt) return;
-    setDraft(prompt);
-    params.delete('prompt');
-    const query = params.toString();
-    window.history.replaceState(null, '', query ? `/assistant?${query}` : '/assistant');
+  const orgRef = React.useRef({
+    current: currentOrgId,
+    committed: currentOrgId,
+    epoch: 0,
+  });
+  orgRef.current.current = currentOrgId;
+
+  const turnRef = React.useRef<{
+    sessionToken: number;
+    requestId: number;
+    abort: AbortController | null;
+  }>({
+    sessionToken: 0,
+    requestId: 0,
+    abort: null,
+  });
+
+  const urlSyncRef = React.useRef({
+    initialized: false,
+    searchKey: searchParamsKey,
+  });
+
+  const transcriptSyncRef = React.useRef<TranscriptSyncState>({
+    verifiedId: null,
+    serverMessageCount: 0,
+    pendingTurn: null,
+    preserveLocalEntries: false,
+  });
+
+  // Bind conversation visibility to the committed organization during render so
+  // switching organizations immediately suppresses stale detail queries and UI.
+  const isOrgTransitioning =
+    orgRef.current.committed !== null && currentOrgId !== orgRef.current.committed;
+  const isSessionValidForOrg =
+    activeSession !== null &&
+    !isOrgTransitioning &&
+    (activeSession.orgId === null || activeSession.orgId === currentOrgId);
+  const activeId = isSessionValidForOrg ? activeSession.id : null;
+  const visibleEntries = React.useMemo(
+    () => (isOrgTransitioning ? [] : entries),
+    [isOrgTransitioning, entries],
+  );
+
+  const activeIdRef = React.useRef<string | null>(activeId);
+  activeIdRef.current = activeId;
+  const robotRef = React.useRef(robot);
+  robotRef.current = robot;
+
+  const detail = useAssistantConversation(activeId);
+
+  const resetTranscriptSync = React.useCallback(() => {
+    transcriptSyncRef.current = {
+      verifiedId: null,
+      serverMessageCount: 0,
+      pendingTurn: null,
+      preserveLocalEntries: false,
+    };
   }, []);
 
-  // Replay a saved transcript into the thread.
+  const cancelInFlightTurn = React.useCallback(() => {
+    turnRef.current.sessionToken += 1;
+    const controller = turnRef.current.abort;
+    turnRef.current.abort = null;
+    controller?.abort();
+    setBusy(false);
+    robotRef.current.stopSpeaking();
+    robotRef.current.clearReply();
+    robotRef.current.reset();
+  }, []);
+
+  const clearThreadState = React.useCallback(
+    (nextNotice: string | null) => {
+      cancelInFlightTurn();
+      resetTranscriptSync();
+      activeIdRef.current = null;
+      setActiveSession(null);
+      setEntries([]);
+      setError(null);
+      setNotice(nextNotice);
+      setRenaming(null);
+      setChatEpoch((epoch) => epoch + 1);
+      setMobileHistoryOpen(false);
+    },
+    [cancelInFlightTurn, resetTranscriptSync],
+  );
+
+  const applyUrlSearch = React.useCallback(
+    (rawSearch: string) => {
+      const parsed = parseAssistantUrlState(rawSearch);
+      const hasPrompt = parsed.prompt !== null;
+      if (parsed.prompt !== null) {
+        setDraft(parsed.prompt);
+      }
+
+      if (parsed.conversation.status === 'valid') {
+        if (parsed.conversation.id !== activeIdRef.current) {
+          if (activeIdRef.current !== null || turnRef.current.abort !== null) {
+            cancelInFlightTurn();
+            setChatEpoch((epoch) => epoch + 1);
+          }
+          resetTranscriptSync();
+          activeIdRef.current = parsed.conversation.id;
+          setActiveSession({
+            id: parsed.conversation.id,
+            orgId: orgRef.current.current,
+          });
+          setEntries([]);
+          setError(null);
+          setNotice(null);
+          setRenaming(null);
+          setMobileHistoryOpen(false);
+        }
+        if (hasPrompt) {
+          syncAssistantUrl({ clearPrompt: true }, 'replace');
+        }
+        return;
+      }
+
+      if (parsed.conversation.status === 'invalid') {
+        clearThreadState(MISSING_CONVERSATION_NOTICE);
+        syncAssistantUrl({ conversationId: null, clearPrompt: hasPrompt }, 'replace');
+        return;
+      }
+
+      if (activeIdRef.current !== null) {
+        clearThreadState(null);
+      }
+      if (hasPrompt) {
+        syncAssistantUrl({ clearPrompt: true }, 'replace');
+      }
+    },
+    [cancelInFlightTurn, clearThreadState, resetTranscriptSync],
+  );
+
+  // Sync on initial mount and whenever Next.js client navigation updates searchParams.
   React.useEffect(() => {
-    if (!activeId) return;
+    if (!urlSyncRef.current.initialized) {
+      urlSyncRef.current = { initialized: true, searchKey: searchParamsKey };
+      const initialSearch =
+        window.location.search || (searchParamsKey ? `?${searchParamsKey}` : '');
+      applyUrlSearch(initialSearch);
+      return;
+    }
+    if (urlSyncRef.current.searchKey === searchParamsKey) return;
+    urlSyncRef.current.searchKey = searchParamsKey;
+    applyUrlSearch(window.location.search);
+  }, [searchParamsKey, applyUrlSearch]);
+
+  // Synchronize browser back/forward navigation and clean up on unmount.
+  React.useEffect(() => {
+    const turnState = turnRef.current;
+    const handlePopState = () => {
+      applyUrlSearch(window.location.search);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      turnState.sessionToken += 1;
+      const controller = turnState.abort;
+      turnState.abort = null;
+      controller?.abort();
+    };
+  }, [applyUrlSearch]);
+
+  // Finalize organization transitions or bind initial org to a pre-loaded deep link.
+  React.useEffect(() => {
+    const committedOrgId = orgRef.current.committed;
+    if (committedOrgId === null && currentOrgId !== null) {
+      orgRef.current.committed = currentOrgId;
+      setActiveSession((prev) =>
+        prev && prev.orgId === null ? { id: prev.id, orgId: currentOrgId } : prev,
+      );
+      return;
+    }
+    if (committedOrgId !== null && committedOrgId !== currentOrgId) {
+      orgRef.current.committed = currentOrgId;
+      orgRef.current.epoch += 1;
+      clearThreadState(null);
+      syncAssistantUrl({ conversationId: null }, 'replace');
+    }
+  }, [currentOrgId, clearThreadState]);
+
+  // Replay a saved transcript into the thread without overwriting active streams
+  // or local uncommitted/failed turns with stale snapshots.
+  React.useEffect(() => {
+    if (!activeId || busy || detail.isError) return;
     if (!detail.data || detail.data.id !== activeId) return;
+    const sync = transcriptSyncRef.current;
+    if (sync.preserveLocalEntries) return;
+    if (sync.pendingTurn && !isSnapshotFreshForPendingTurn(detail.data, sync.pendingTurn)) {
+      return;
+    }
+
+    transcriptSyncRef.current = {
+      verifiedId: activeId,
+      serverMessageCount: Math.max(detail.data.message_count, detail.data.messages.length),
+      pendingTurn: null,
+      preserveLocalEntries: false,
+    };
     setEntries(
       detail.data.messages.map((message) => ({
         role: message.role === 'user' ? 'user' : 'assistant',
@@ -165,44 +426,78 @@ export function AssistantWorkspace() {
         actions: message.actions,
       })),
     );
-  }, [activeId, detail.data]);
+  }, [activeId, busy, detail.data, detail.dataUpdatedAt, detail.isError]);
+
+  // Gracefully fall back to a fresh chat when a deep-linked or deleted
+  // conversation returns 404 or a conversation_id 422 validation error.
+  React.useEffect(() => {
+    if (!activeId || !detail.isError) return;
+    if (!isMissingConversationError(detail.error)) return;
+    const failedId = activeId;
+    clearThreadState(MISSING_CONVERSATION_NOTICE);
+    queryClient.removeQueries({
+      queryKey: ['koro', 'conversation', currentOrgId, failedId],
+    });
+    void queryClient.invalidateQueries({ queryKey: ['koro', 'conversations', currentOrgId] });
+    syncAssistantUrl({ conversationId: null }, 'replace');
+  }, [activeId, currentOrgId, detail.isError, detail.error, queryClient, clearThreadState]);
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [entries, busy]);
+  }, [visibleEntries, busy]);
 
-  const startNewChat = () => {
-    robot.stopSpeaking();
-    robot.clearReply();
-    robot.reset();
-    setActiveId(null);
-    setEntries([]);
+  const startNewChat = (options?: { historyMode?: 'push' | 'replace' }) => {
+    clearThreadState(null);
     setDraft('');
-    setError(null);
-    setChatEpoch((epoch) => epoch + 1);
-    setMobileHistoryOpen(false);
+    syncAssistantUrl({ conversationId: null }, options?.historyMode ?? 'push');
   };
 
   const openConversation = (id: string) => {
-    if (id === activeId) {
+    const normalizedId = normalizeConversationId(id) ?? id;
+    if (normalizedId === activeIdRef.current) {
       setMobileHistoryOpen(false);
       return;
     }
-    robot.stopSpeaking();
-    robot.clearReply();
-    robot.reset();
-    setActiveId(id);
-    setEntries([]);
-    setError(null);
-    setChatEpoch((epoch) => epoch + 1);
-    setMobileHistoryOpen(false);
+    clearThreadState(null);
+    activeIdRef.current = normalizedId;
+    setActiveSession({ id: normalizedId, orgId: orgRef.current.current });
+    syncAssistantUrl({ conversationId: normalizedId }, 'push');
   };
+
+  const isVerifiedActiveConversation =
+    activeId !== null && transcriptSyncRef.current.verifiedId === activeId;
+  const isLoadingActiveConversation = Boolean(
+    activeId &&
+      !isVerifiedActiveConversation &&
+      (!currentOrgId || detail.isPending || (detail.isFetching && detail.data?.id !== activeId)),
+  );
+  const hasDetailLoadError = Boolean(
+    activeId && detail.isError && !isMissingConversationError(detail.error),
+  );
+  const composerDisabled = isLoadingActiveConversation || hasDetailLoadError;
 
   const send = async (payload: { text: string; attachments: Parameters<typeof withAttachments>[1] }) => {
     const message = payload.text.trim();
-    if (!message || busy || !currentOrgId) return;
+    if (!message || busy || !currentOrgId || isOrgTransitioning || composerDisabled) return;
     const outgoing = withAttachments(message, payload.attachments);
-    const history = entries.slice(-6).map((entry) => ({ role: entry.role, content: entry.content }));
+    const history = visibleEntries
+      .slice(-6)
+      .map((entry) => ({ role: entry.role, content: entry.content }));
+    const requestSessionToken = turnRef.current.sessionToken;
+    const requestId = ++turnRef.current.requestId;
+    const requestOrgId = currentOrgId;
+    const requestConversationId = activeId;
+    const isCurrentRequest = () =>
+      turnRef.current.sessionToken === requestSessionToken &&
+      turnRef.current.requestId === requestId &&
+      orgRef.current.current === requestOrgId;
+
+    if (requestConversationId) {
+      void queryClient.cancelQueries({
+        queryKey: ['koro', 'conversation', requestOrgId, requestConversationId],
+      });
+    }
+    transcriptSyncRef.current.preserveLocalEntries = false;
 
     setEntries((prev) => [
       ...prev,
@@ -211,19 +506,20 @@ export function AssistantWorkspace() {
     ]);
     setDraft('');
     setError(null);
+    setNotice(null);
     setBusy(true);
-    robot.requestStarted();
+    robotRef.current.requestStarted();
     let streamed = false;
     const controller = new AbortController();
-    abortRef.current = controller;
+    turnRef.current.abort = controller;
     try {
       const result = await streamKoroChat(
-        currentOrgId,
+        requestOrgId,
         {
           message: outgoing,
           history,
           persist: true,
-          conversation_id: activeId ?? undefined,
+          conversation_id: requestConversationId ?? undefined,
           model: override?.model,
           base_url: override?.base_url,
           context: {
@@ -237,9 +533,10 @@ export function AssistantWorkspace() {
         {
           signal: controller.signal,
           onDelta: (text) => {
+            if (!isCurrentRequest()) return;
             if (!streamed) {
               streamed = true;
-              robot.responseStreaming();
+              robotRef.current.responseStreaming();
             }
             setEntries((prev) => {
               const next = [...prev];
@@ -251,6 +548,15 @@ export function AssistantWorkspace() {
           },
         },
       );
+
+      void queryClient.invalidateQueries({ queryKey: ['koro', 'conversations', requestOrgId] });
+      // Copilot actions can create, run or publish workflows and agents.
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      void queryClient.invalidateQueries({ queryKey: ['agents'] });
+      void queryClient.invalidateQueries({ queryKey: ['runs'] });
+
+      if (!isCurrentRequest()) return;
+
       setEntries((prev) => {
         const next = [...prev];
         const last = next.length - 1;
@@ -264,26 +570,63 @@ export function AssistantWorkspace() {
         }
         return next;
       });
-      robot.completed(result.reply, true);
-      if (!activeId && result.conversation_id) {
-        // The transcript now exists server-side; the detail query replays it
-        // (replacing the optimistic thread with the saved messages).
-        setActiveId(result.conversation_id);
+      robotRef.current.completed(result.reply, true);
+
+      const targetId =
+        requestConversationId ??
+        (result.conversation_id
+          ? (normalizeConversationId(result.conversation_id) ?? result.conversation_id)
+          : null);
+      if (targetId) {
+        const cachedDetail =
+          queryClient.getQueryData<AssistantConversationDetail>([
+            'koro',
+            'conversation',
+            requestOrgId,
+            targetId,
+          ]) ?? null;
+        const cachedCount = cachedDetail
+          ? Math.max(cachedDetail.message_count, cachedDetail.messages.length)
+          : 0;
+        const prevSync = transcriptSyncRef.current;
+        const baseCount = Math.max(
+          prevSync.serverMessageCount,
+          prevSync.pendingTurn?.minMessageCount ?? 0,
+          cachedCount,
+        );
+        transcriptSyncRef.current = {
+          verifiedId: targetId,
+          serverMessageCount: prevSync.serverMessageCount,
+          pendingTurn: {
+            staleSnapshot: cachedDetail,
+            minMessageCount: baseCount + 2,
+            userContent: outgoing.slice(0, 4000),
+            minTurnStartIndex: baseCount,
+          },
+          preserveLocalEntries: false,
+        };
+        if (!requestConversationId) {
+          activeIdRef.current = targetId;
+          setActiveSession({ id: targetId, orgId: requestOrgId });
+          syncAssistantUrl({ conversationId: targetId }, 'replace');
+        }
+        await queryClient.cancelQueries({
+          queryKey: ['koro', 'conversation', requestOrgId, targetId],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ['koro', 'conversation', requestOrgId, targetId],
+        });
       }
-      void queryClient.invalidateQueries({ queryKey: ['koro', 'conversations'] });
-      void queryClient.invalidateQueries({ queryKey: ['koro', 'conversation'] });
-      // Copilot actions can create, run or publish workflows and agents.
-      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      void queryClient.invalidateQueries({ queryKey: ['agents'] });
-      void queryClient.invalidateQueries({ queryKey: ['runs'] });
     } catch (e) {
+      if (!isCurrentRequest()) return;
+      transcriptSyncRef.current.preserveLocalEntries = true;
       if ((e as Error)?.name === 'AbortError') {
-        robot.reset();
+        robotRef.current.reset();
         return;
       }
       const text = toUserMessage(e);
       setError(text);
-      robot.failed();
+      robotRef.current.failed();
       setEntries((prev) => {
         const next = [...prev];
         if (next.length > 0 && next[next.length - 1].role === 'assistant') {
@@ -293,8 +636,12 @@ export function AssistantWorkspace() {
         return [...prev, { role: 'assistant', content: text }];
       });
     } finally {
-      setBusy(false);
-      abortRef.current = null;
+      if (turnRef.current.abort === controller) {
+        turnRef.current.abort = null;
+      }
+      if (isCurrentRequest()) {
+        setBusy(false);
+      }
     }
   };
 
@@ -310,11 +657,25 @@ export function AssistantWorkspace() {
   };
 
   const deleteConversation = async (id: string) => {
+    if (!currentOrgId) return;
+    const requestOrgId = currentOrgId;
+    const requestOrgEpoch = orgRef.current.epoch;
+    const normalizedDeletedId = normalizeConversationId(id) ?? id;
     try {
-      await remove.mutateAsync(id);
-      if (id === activeId) startNewChat();
-      void queryClient.invalidateQueries({ queryKey: ['koro', 'conversation'] });
+      await remove.mutateAsync({ id, orgId: requestOrgId });
+      if (
+        orgRef.current.current === requestOrgId &&
+        normalizedDeletedId === activeIdRef.current
+      ) {
+        startNewChat({ historyMode: 'replace' });
+      }
     } catch (e) {
+      if (
+        orgRef.current.current !== requestOrgId ||
+        orgRef.current.epoch !== requestOrgEpoch
+      ) {
+        return;
+      }
       setError(toUserMessage(e));
     }
   };
@@ -324,7 +685,7 @@ export function AssistantWorkspace() {
     const messages =
       detail.data?.id === activeId && detail.data.messages.length > 0
         ? detail.data.messages
-        : entries;
+        : visibleEntries;
     downloadTextFile(exportFilename(title), transcriptMarkdown(title, messages));
   };
 
@@ -479,7 +840,13 @@ export function AssistantWorkspace() {
                       <button
                         onClick={() => void deleteConversation(item.id)}
                         aria-label={`Delete chat “${item.title}”`}
-                        disabled={remove.isPending && remove.variables === item.id}
+                        disabled={
+                          remove.isPending &&
+                          (remove.variables === item.id ||
+                            (typeof remove.variables === 'object' &&
+                              remove.variables !== null &&
+                              remove.variables.id === item.id))
+                        }
                         className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -503,7 +870,7 @@ export function AssistantWorkspace() {
         </span>
         <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold">Assistant</h2>
         <button
-          onClick={startNewChat}
+          onClick={() => startNewChat()}
           aria-label="New chat"
           title="New chat"
           className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -514,7 +881,7 @@ export function AssistantWorkspace() {
 
       <div className="shrink-0 space-y-0.5 p-2">
         <button
-          onClick={startNewChat}
+          onClick={() => startNewChat()}
           className="flex w-full items-center gap-2 rounded-lg border border-border/70 bg-background px-2.5 py-1.5 text-left text-[13px] font-medium transition-colors hover:border-primary/40 hover:bg-accent"
         >
           <MessagesSquare className="h-4 w-4 text-muted-foreground" aria-hidden /> New chat
@@ -552,10 +919,54 @@ export function AssistantWorkspace() {
     </>
   );
 
-  const isFresh = entries.length === 0;
+  const isFresh = visibleEntries.length === 0;
 
   const composer = (
     <>
+      {notice && (
+        <div
+          className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-1.5 text-xs text-muted-foreground"
+          role="status"
+        >
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss notice"
+            className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+      {hasDetailLoadError && (
+        <div
+          role="alert"
+          className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-destructive/30 bg-destructive/[0.06] px-3 py-2 text-xs text-destructive"
+        >
+          <span>{toUserMessage(detail.error)}</span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px]"
+              onClick={() => void detail.refetch()}
+            >
+              Retry
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 text-[11px]"
+              onClick={() => startNewChat()}
+            >
+              Start new chat
+            </Button>
+          </div>
+        </div>
+      )}
       {error && (
         <p
           className="mb-2 rounded-lg border border-destructive/30 bg-destructive/[0.06] px-3 py-1.5 text-xs text-destructive"
@@ -568,8 +979,9 @@ export function AssistantWorkspace() {
         value={draft}
         onChange={setDraft}
         onSend={(payload) => void send(payload)}
-        onStop={() => abortRef.current?.abort()}
+        onStop={() => turnRef.current.abort?.abort()}
         busy={busy}
+        disabled={composerDisabled}
         large={isFresh}
         modelOverride={override}
         onModelOverride={setOverride}
@@ -672,7 +1084,7 @@ export function AssistantWorkspace() {
           ref={scrollRef}
           className="oa-dot-grid oa-scroll min-h-0 flex-1 overflow-y-auto"
         >
-          {entries.length === 0 ? (
+          {visibleEntries.length === 0 ? (
             <div className="flex min-h-full items-center justify-center px-4 py-8">
               <div className="w-full max-w-2xl space-y-5">
                 <div className="text-center">
@@ -703,7 +1115,7 @@ export function AssistantWorkspace() {
                     <button
                       key={prompt}
                       onClick={() => setDraft(prompt)}
-                      disabled={busy}
+                      disabled={busy || composerDisabled}
                       className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
                     >
                       {prompt}
@@ -711,7 +1123,7 @@ export function AssistantWorkspace() {
                   ))}
                 </div>
 
-                {(detail.isLoading || conversations.isLoading) && activeId && (
+                {isLoadingActiveConversation && (
                   <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Opening chat…
                   </p>
@@ -722,12 +1134,12 @@ export function AssistantWorkspace() {
             </div>
           ) : (
             <div className="mx-auto w-full max-w-3xl space-y-4 px-3 py-5 sm:px-6">
-              {detail.isLoading && activeId && (
+              {!isVerifiedActiveConversation && detail.isLoading && activeId && (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading transcript…
                 </p>
               )}
-              {entries.map((entry, index) => (
+              {visibleEntries.map((entry, index) => (
                 <div
                   key={index}
                   className={cn(
