@@ -13,36 +13,80 @@ alphabetically. `Integrations` is intentionally empty — the extension point.
 
 ## Node table (built-in, all `source: "builtin"`, `version: 1`)
 
+Regenerated from `apps/api/src/openagent/registry/node-registry.json` (`registry_version 1.0`) by `scripts/generate_node_docs.py`.
+
 | Type | Category | Ports | Required config |
 |---|---|---|---|
-| `agent` | Agents | in → out | `agent_id` or `agent_name` |
-| `prompt` | AI | in → out | `prompt` + (`model` or `model_router_profile`) |
+| `agent` | Agents | in → out | `agent_id` |
+| `browser_agent` | Agents | in → out | `objective` |
+| `code_agent` | Agents | in → out | `objective` + `repository_id` |
+| `assert` | AI | in → out | `conditions` |
+| `correct` | AI | in → out | — |
+| `evaluate` | AI | in → out | — |
+| `prompt` | AI | in → out | `model` + `prompt` |
+| `quality_gate` | AI | in → out | — |
+| `retry` | AI | in → out | `max_attempts` |
+| `verify` | AI | in → out | `checks` |
 | `condition` | Logic | in → true/false | `expression` |
-| `switch` | Logic | in → routes…+default | `routes: [{name, expression}]` |
-| `merge` | Logic | in (fan-in) → out | — |
-| `loop` | Logic | in → out | `items`, `max_iterations` 1..10000 |
-| `set` | Data | in → out | non-empty `values` object |
-| `transform` | Data | in → out | `mapping` or `expression` |
+| `loop` | Logic | in → out | `items` |
+| `merge` | Logic | in → out | — |
+| `split_in_batches` | Logic | in → out | — |
+| `stop_and_error` | Logic | in → out | `message` |
+| `switch` | Logic | in → out | `routes` |
+| `aggregate` | Data | in → out | — |
+| `code` | Data | in → out | `code` |
+| `compare_datasets` | Data | in → same/different/only_in_a/only_in_b | — |
+| `compression` | Data | in → out | `action` |
+| `convert_to_file` | Data | in → out | — |
+| `edit_fields` | Data | in → out | — |
+| `extract_from_file` | Data | in → out | — |
 | `filter` | Data | in → out | `items` + `predicate` |
+| `html` | Data | in → out | `action` |
+| `limit` | Data | in → out | — |
 | `map` | Data | in → out | `items` + `expression` |
-| `variable` | Utilities | in → out | `mode` set/get + `name` |
-| `approval` | Human | in → out (terminal) | non-empty `approvers` |
-| `webhook` | HTTP | in → out | `url`, valid `method` |
-| `tool` | Tools | in → out | `tool_id` or `tool_name` |
-| `delay` | Utilities | in → out | positive `duration_seconds` |
-| `subworkflow` | Advanced | in → out | `workflow_id`, optional `input`/`mode: wait` — runs in-process, child execution linked |
-| `code_agent` | Agents | in → out | `objective` + (`repository_id` or `repository`); `max_steps` 1..200; optional `execution_policy`/`review_policy`/`approval_policy` objects |
-| `code_search` | Tools | in → out | `query` + (`workspace_id` or `repository_id`) |
-| `code_read` | Tools | in → out | `path` (+ `workspace_id`, `start`, `end`) |
-| `code_patch` | Tools | in → out | `task_id` + `diff` (unified diff text) |
-| `code_test` | Tools | in → out | `command` (+ `profile` TEST/LINT/TYPECHECK/BUILD/PACKAGE/MIGRATION) |
-| `code_lint` | Tools | in → out | `command` (+ `profile`) |
-| `code_review` | Tools | in → out | `task_id` or `diff` |
+| `read_binary_file` | Data | in → out | `path` |
+| `remove_duplicates` | Data | in → out | — |
+| `set` | Data | in → out | `values` |
+| `sort` | Data | in → out | — |
+| `split_out` | Data | in → out | `field` |
+| `transform` | Data | in → out | `mapping` |
+| `write_binary_file` | Data | in → out | `path` |
+| `xml` | Data | in → out | `action` |
+| `browser_action` | Tools | in → out | `action_type` |
+| `browser_extract` | Tools | in → out | `selector` |
+| `code_lint` | Tools | in → out | `command` |
+| `code_patch` | Tools | in → out | `task_id` + `diff` |
+| `code_read` | Tools | in → out | `path` |
+| `code_review` | Tools | in → out | — |
+| `code_search` | Tools | in → out | `query` |
+| `code_test` | Tools | in → out | `command` |
+| `connector_action` | Tools | in → out | `action_id` |
+| `connector_resource` | Tools | in → out | `kind` |
+| `connector_search` | Tools | in → out | `query` |
+| `connector_trigger` | Tools | → out | `trigger_id` |
+| `create_pr` | Tools | in → out | `task_id` + `title` |
 | `git_commit` | Tools | in → out | `task_id` + `message` |
-| `create_pr` | Tools | in → out | `task_id` + `title` (+ `summary`, `open`) |
+| `tool` | Tools | in → out | `tool_id` |
+| `respond_to_webhook` | HTTP | in → out | — |
+| `webhook` | HTTP | in → out | `url` |
+| `approval` | Human | in → out | `approvers` |
+| `crypto` | Utilities | in → out | `action` |
+| `datetime` | Utilities | in → out | `action` |
+| `delay` | Utilities | in → out | `duration_seconds` |
+| `no_op` | Utilities | in → out | — |
+| `variable` | Utilities | in → out | `mode` + `name` |
+| `subworkflow` | Advanced | in → out | `workflow_id` |
 
-Triggers: `manual` (no config) · `webhook` (`path` + secret reference) ·
-`schedule` (`cron`) · `event` (`event`).
+### Triggers (6)
+
+| Trigger | Ports | Required config |
+|---|---|---|
+| `chat` | → out | — |
+| `event` | → out | `event` |
+| `execute_workflow` | → out | — |
+| `manual` | → out | — |
+| `schedule` | → out | `cron` |
+| `webhook` | → out | `path` |
 
 ## Connection model (§13–14)
 
